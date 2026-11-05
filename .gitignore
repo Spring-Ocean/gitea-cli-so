@@ -1,0 +1,15 @@
+# Local build artifacts
+/bin/
+/dist/
+/gitea-cli
+/gitea-cli.exe
+*.test
+*.out
+
+# Local environment and editor files
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/

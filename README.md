@@ -1,0 +1,34 @@
+# Gitea CLI
+
+面向自部署 Gitea 的命令行工具，目前处于工程初始化阶段。
+
+## 开发环境
+
+- Go 1.27.3。仓库的 go.mod 规定了最低工具链版本；开发和发布请使用指定的 1.27.3，避免将最低版本理解为精确版本锁定。
+- 拉取 Go 模块和自动下载工具链时需要访问相应的模块代理。
+
+检查版本并运行：
+
+~~~sh
+go version
+go run ./cmd/gitea-cli --help
+go run ./cmd/gitea-cli version
+go test ./...
+go build -o bin/gitea-cli ./cmd/gitea-cli
+~~~
+
+Windows PowerShell 下构建可执行文件：
+
+~~~powershell
+go build -o bin/gitea-cli.exe ./cmd/gitea-cli
+~~~
+
+发布构建可通过 `go build -ldflags "-X main.version=v1.0.0" -o bin/gitea-cli ./cmd/gitea-cli` 注入版本；未指定时 `version` 命令显示 `dev`。
+
+如本机有其他 Go 版本，可以在命令执行环境中将 GOTOOLCHAIN 设置为 go1.27.3，由 Go 使用或下载指定工具链。正式构建应先核对实际使用的工具链。
+
+## 当前范围
+
+目前提供命令入口、帮助和版本命令。Git、Gitea API、MCP、认证和终端样式尚未实现；Cobra 用于命令解析，Lip Gloss 会在需要终端渲染时引入。目录按功能逐步创建，避免提交空占位目录。
+
+需求与技术方案分别见 [requirements.md](docs/requirements.md) 和 [technical-design.md](docs/technical-design.md)。
