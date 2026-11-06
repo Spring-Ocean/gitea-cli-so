@@ -7,7 +7,7 @@ import (
 	"github.com/Spring-Ocean/gitea-cli-so/internal/cli"
 )
 
-// version can be set at build time with -ldflags.
+// version can be set at build time using -ldflags.
 var version = "dev"
 
 func main() {

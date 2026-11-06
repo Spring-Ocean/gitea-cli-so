@@ -1,4 +1,4 @@
-# Gitea CLI
+# sotea
 
 面向自部署 Gitea 的命令行工具，目前处于工程初始化阶段。
 
@@ -11,24 +11,32 @@
 
 ~~~sh
 go version
-go run ./cmd/gitea-cli --help
-go run ./cmd/gitea-cli version
+go run ./cmd/sotea --help
+go run ./cmd/sotea version
 go test ./...
-go build -o bin/gitea-cli ./cmd/gitea-cli
+go build -o bin/sotea ./cmd/sotea
 ~~~
 
 Windows PowerShell 下构建可执行文件：
 
 ~~~powershell
-go build -o bin/gitea-cli.exe ./cmd/gitea-cli
+go build -o bin/sotea.exe ./cmd/sotea
 ~~~
 
-发布构建可通过 `go build -ldflags "-X main.version=v1.0.0" -o bin/gitea-cli ./cmd/gitea-cli` 注入版本；未指定时 `version` 命令显示 `dev`。
+发布构建可通过 `go build -ldflags "-X main.version=v1.0.0" -o bin/sotea ./cmd/sotea` 注入版本；未指定时 `version` 命令显示 `dev`。
 
 如本机有其他 Go 版本，可以在命令执行环境中将 GOTOOLCHAIN 设置为 go1.27.3，由 Go 使用或下载指定工具链。正式构建应先核对实际使用的工具链。
+
+程序与命令名称为 `sotea`。Go 模块路径暂时保留现有远程仓库地址 `github.com/Spring-Ocean/gitea-cli-so`；如以后重命名远程仓库，应同步评估模块迁移。
 
 ## 当前范围
 
 目前提供命令入口、帮助和版本命令。Git、Gitea API、MCP、认证和终端样式尚未实现；Cobra 用于命令解析，Lip Gloss 会在需要终端渲染时引入。目录按功能逐步创建，避免提交空占位目录。
 
 需求与技术方案分别见 [requirements.md](docs/requirements.md) 和 [technical-design.md](docs/technical-design.md)。
+
+首版运行、认证、多选和确认规则见 [cli-contract.md](docs/cli-contract.md)，MCP 工具方案见 [mcp-design.md](docs/mcp-design.md)。这些是实施契约，尚未实现；当前支持的命令仍以实际 --help 为准。
+
+## 许可证
+
+本项目采用 [MIT License](LICENSE)。

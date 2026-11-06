@@ -10,7 +10,7 @@ import (
 // NewRootCommand builds an independent command tree for each invocation.
 func NewRootCommand(version string) *cobra.Command {
 	root := &cobra.Command{
-		Use:           "gitea-cli",
+		Use:           "sotea",
 		Short:         "CLI for self-hosted Gitea",
 		SilenceErrors: true,
 		SilenceUsage:  true,
@@ -21,7 +21,7 @@ func NewRootCommand(version string) *cobra.Command {
 		Short: "Print the CLI version",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			_, err := fmt.Fprintf(cmd.OutOrStdout(), "gitea-cli %s\n", version)
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "sotea %s\n", version)
 			return err
 		},
 	})

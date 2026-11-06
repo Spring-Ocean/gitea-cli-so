@@ -1,24 +1,25 @@
-# Gitea CLI 技术设计文档
+# sotea 技术设计文档
 
-> 状态：技术方案讨论稿
+> 状态：首版范围及运行契约已确定；依赖选型、实现与验收待完成
 >
-> 更新日期：2026-11-04
+> 更新日期：2026-11-06
 >
 > 对应需求：[requirements.md](requirements.md)
 
 ## 1. 目标与设计边界
 
-本设计描述面向自部署 Gitea 的 CLI、Git 集成、通用 API 和本地 MCP 服务。项目使用 Go 1.27.3 构建，交付 macOS 和 Windows 预编译程序；首版同时覆盖通用 API 调用及常用业务操作。具体业务命令和 MCP 工具清单仍需确认。
+本设计描述面向自部署 Gitea 的 CLI、Git 集成、通用 API 和本地 MCP 服务。项目使用 Go 1.27.3 构建，交付 macOS 和 Windows 预编译程序；首版同时覆盖通用 API 调用及常用业务操作。首版业务命令为第 4 节全部已列命令，包含交互补全和无参数菜单；工具清单见 [MCP 设计](mcp-design.md)。
 
-本文的命令名 gitea-cli 是设计占位符，示例和接口均为建议，尚未代表最终命令契约。除用户已确定的要求外，架构、组件选型和平台矩阵均为待评审方案。版本兼容目标为 28.3.0、1.27.3、1.26.4、1.25.5、1.24.7、1.23.8 和 1.22.6；目前均未完成实例验证。28.3.0 的官方 API 文档与发布说明已可查，测试产物和实际兼容性仍待验证。
+命令名为 sotea，首版运行、认证、多选和确认契约见 [cli-contract.md](cli-contract.md)。本文及该契约共同约束实施；依赖版本、真实平台支持与服务端行为仍需验证。版本兼容目标为 28.3.0、1.27.3、1.26.4、1.25.5、1.24.7、1.23.8 和 1.22.6；目前均未完成实例验证。28.3.0 的官方 API 文档与发布说明已可查，测试产物和实际兼容性仍待验证。
 
 ## 2. 总体架构
 
-建议使用一个可执行程序，同时提供 CLI 和 stdio MCP 服务。两个入口调用同一应用服务，统一处理仓库上下文、权限、API 版本差异和错误。MCP 直接调用应用服务，不通过运行 CLI 子进程并解析文本输出实现。
+建议使用一个可执行程序，提供 CLI、无参数终端菜单和 stdio MCP 服务。各入口调用同一应用服务，统一处理仓库上下文、权限、API 版本差异和错误。MCP 直接调用应用服务，不通过运行 CLI 子进程并解析文本输出实现。不同运行入口分别启动进程，共用可执行文件和配置，并不意味着共享内存或运行中的服务进程。
 
 ~~~mermaid
 flowchart LR
     CLI[CLI 命令] --> APP[应用服务]
+    TUI[终端菜单] --> APP
     MCP[MCP stdio 服务] --> APP
     APP --> CTX[实例和仓库上下文]
     APP --> GIT[Git 适配器]
@@ -32,6 +33,7 @@ flowchart LR
 | 组件 | 职责 |
 | --- | --- |
 | CLI 入口 | 参数解析、交互、输出格式与进程退出状态。 |
+| 终端菜单 | 持续会话、仓库上下文展示和操作导航；调用应用服务。 |
 | MCP 入口 | 协议生命周期、工具描述、输入校验及结构化结果。 |
 | 应用服务 | 定义业务操作与共用流程，不依赖终端或 MCP 传输。 |
 | 上下文 | 解析实例、账号、本地仓库和远程仓库，处理歧义。 |
@@ -42,13 +44,14 @@ flowchart LR
 
 ## 3. 工程组织与依赖
 
-开发、CI 和发布构建使用 Go 1.27.3；工具链升级应经过兼容性和测试评估。HTTP、进程管理及基础编码优先评估标准库。CLI 命令解析已引入 Cobra，终端样式拟采用 Lip Gloss，职责见第 4.7 节；Cobra 的锁定版本以 go.mod 为准，Lip Gloss 在实现终端渲染时引入。MCP SDK 和系统凭证库在实现前评估确定，并记录许可证和维护状态。
+开发、CI 和发布构建使用 Go 1.27.3；工具链升级应经过兼容性和测试评估。HTTP、进程管理及基础编码优先评估标准库。CLI 命令解析已引入 Cobra，终端样式拟采用 Lip Gloss，交互组件候选方案见第 4.8 节；Cobra 的锁定版本以 go.mod 为准，其他库在相关功能实现时引入。MCP SDK 和系统凭证库在实现前评估确定，并记录许可证和维护状态。
 
 建议目录如下，名称和边界可随实现调整：
 
 ~~~text
-cmd/gitea-cli/       程序入口
+cmd/sotea/           程序入口
 internal/cli/        命令行适配
+internal/tui/        持续菜单和交互选择
 internal/mcp/        MCP 服务及工具
 internal/app/        应用服务
 internal/context/    实例与仓库上下文
@@ -69,77 +72,88 @@ docs/                设计与使用文档
 
 ### 4.1 范围与设计约定
 
-本节以 [Gitea 28.3.0 API 文档](https://docs.gitea.com/api/)和 [OpenAPI 定义](https://docs.gitea.com/openapi3-28.json)为例，优先设计 Issue、PR 和 Release 的常用命令，仓库、分支、标签及提交状态作为工作流支撑。下表是供评审的候选设计，不表示命令名称、首版逐项范围或其他版本的兼容性已经确定；通用 API 入口继续提供完整访问能力。
+本节以 [Gitea 28.3.0 API 文档](https://docs.gitea.com/api/)和 [OpenAPI 定义](https://docs.gitea.com/openapi3-28.json)为例，优先设计 Issue、PR 和 Release 的常用命令，仓库、分支、标签及提交状态作为工作流支撑。下表全部命令和交互设计纳入首版；七版本必须通过对应功能验收，通用 API 继续访问实例实际支持的全部端点。API 映射以 28.3.0 举例，不等于其他版本也使用相同端点或字段。
 
 下表路径均相对于实例的 API 根路径 /api/v1；R 表示 /repos/{owner}/{repo}，N 表示仓库内 Issue 或 PR 编号，ID 表示 Release ID。仓库、编号和标签应按路径段编码；Release 的标签名与 ID 不能混用。
 
+各表的“交互式设计”为首版范围，Issue 和 PR 关闭／重开支持多资源目标；其余业务写操作单资源目标，多值字段可多选，详见 CLI 契约第 5 节。所有业务写入即使直接传编号也确认，非交互完整参数加 --yes。除用户主动进入交互外，仅在必需目标或参数缺失时考虑提示；已明确提供的参数不应被交互覆盖。表格中的单选、多选分别指选择目标的方式，不代表相应接口支持批量写入。交互条件、取消和非终端行为统一遵循第 4.8 节。
+
 ### 4.2 Issue
 
-| 建议命令 | 操作 | 28.3.0 API |
-| --- | --- | --- |
-| issue list | 列表、状态及标签等筛选 | GET R/issues |
-| issue view N | 查看详情 | GET R/issues/{index} |
-| issue create | 创建 Issue | POST R/issues |
-| issue edit N | 编辑标题、正文及里程碑等 | PATCH R/issues/{index} |
-| issue close N / reopen N | 关闭或重新打开 | PATCH R/issues/{index}，设置对应状态 |
-| issue comment list N / add N | 查看或添加普通评论 | GET / POST R/issues/{index}/comments |
-| issue assignee add N / remove N | 添加或移除负责人 | 1.27.3、28.3.0 定义中有 POST / DELETE R/issues/{index}/assignees；旧样本需评估整体替换的并发风险，见多版本调研。 |
-| issue label list N / add N / remove N | 查看、添加或移除标签 | GET / POST R/issues/{index}/labels；DELETE R/issues/{index}/labels/{id} |
+| 首版命令 | 操作 | 28.3.0 API | 交互式设计 |
+| --- | --- | --- | --- |
+| issue list | 列表、状态及标签等筛选 | GET R/issues | 子命令默认直接分页列出；持续菜单支持搜索和分页浏览。 |
+| issue view N | 查看详情 | GET R/issues/{index} | 缺少编号时搜索 Issue 并单选。 |
+| issue create | 创建 Issue | POST R/issues | 缺少标题等必需输入时提示填写；正文、标签和负责人等可选项按用户选择补充。 |
+| issue edit N | 编辑标题、正文及里程碑等 | PATCH R/issues/{index} | 缺少编号时单选；未指定修改内容时选择要修改的字段并输入新值。 |
+| issue close N | 关闭 Issue | PATCH R/issues/{index}，设置关闭状态 | 缺少编号时从未关闭 Issue 中搜索并勾选一个或多个；确认与批量结果见第 4.8 节。 |
+| issue reopen N | 重新打开 Issue | PATCH R/issues/{index}，设置打开状态 | 缺少编号时从已关闭 Issue 中多选，最多 100 个；直接传编号也确认。 |
+| issue comment list N | 查看普通评论 | GET R/issues/{index}/comments | 缺少编号时单选 Issue，然后列出评论。 |
+| issue comment add N | 添加普通评论 | POST R/issues/{index}/comments | 缺少编号时单选 Issue；缺少评论内容时提示输入。 |
+| issue assignee add N / remove N | 添加或移除负责人 | 1.27.3、28.3.0 定义中有 POST / DELETE R/issues/{index}/assignees；旧样本需评估整体替换的并发风险，见多版本调研。 | 缺少编号时单选 Issue；添加时选择或输入负责人，移除时从当前负责人中勾选。 |
+| issue label list N | 查看 Issue 标签 | GET R/issues/{index}/labels | 缺少编号时单选 Issue，然后列出标签。 |
+| issue label add N / remove N | 添加或移除标签 | POST R/issues/{index}/labels；DELETE R/issues/{index}/labels/{id} | 缺少编号时单选 Issue；添加时从可用标签中勾选，移除时从当前标签中勾选。 |
 
 Issue 列表应显式区分 Issue 和 PR：28.3.0 的列表接口提供 type 参数，Issue 命令应请求 issues 类型；其他版本的实现及回退需验证。标签操作区分增量添加、移除和整体替换，不能把添加实现为覆盖现有标签。里程碑使用编辑接口设置，清空语义及各版本字段支持需验证。
 
 ### 4.3 Pull Request
 
-| 建议命令 | 操作 | 28.3.0 API |
-| --- | --- | --- |
-| pr list / view N / create | 列表、详情和创建 | GET / POST R/pulls；GET R/pulls/{index} |
-| pr edit N / close N / reopen N | 编辑、关闭或重新打开 | PATCH R/pulls/{index} |
-| pr files N / commits N | 查看变更文件及提交 | GET R/pulls/{index}/files；GET R/pulls/{index}/commits |
-| pr comment list N / add N | 查看或添加普通讨论评论 | GET / POST R/issues/{index}/comments |
-| pr review list N / create N | 查看审查及提交审查意见 | GET / POST R/pulls/{index}/reviews；已有审查提交使用 POST R/pulls/{index}/reviews/{id} |
-| pr reviewer add N | 请求审查 | POST R/pulls/{index}/requested_reviewers |
-| pr merge N | 合并 PR | POST R/pulls/{index}/merge |
+| 首版命令 | 操作 | 28.3.0 API | 交互式设计 |
+| --- | --- | --- | --- |
+| pr list | 列出 PR | GET R/pulls | 子命令默认直接分页列出；持续菜单支持搜索和分页浏览。 |
+| pr view N | 查看 PR | GET R/pulls/{index} | 缺少编号时搜索 PR 并单选。 |
+| pr create | 创建 PR | POST R/pulls | 缺少时逐项补齐：当前分支作 head 候选、仓库默认分支作 base 候选；跨仓库 head 显式输入，不自动 push。 |
+| pr edit N | 编辑 PR | PATCH R/pulls/{index} | 缺少编号时单选；未指定修改内容时选择字段并输入新值。 |
+| pr close N / reopen N | 关闭或重新打开 PR | PATCH R/pulls/{index} | 缺少编号时多选相应状态的未合并 PR，最多 100 个；直接传编号也确认。 |
+| pr files N / commits N | 查看变更文件或提交 | GET R/pulls/{index}/files；GET R/pulls/{index}/commits | 缺少编号时单选 PR，然后直接显示对应结果。 |
+| pr comment list N | 查看普通讨论评论 | GET R/issues/{index}/comments | 缺少编号时单选 PR，然后列出普通评论。 |
+| pr comment add N | 添加普通讨论评论 | POST R/issues/{index}/comments | 缺少编号时单选 PR；缺少评论内容时提示输入。 |
+| pr review list N | 查看审查记录 | GET R/pulls/{index}/reviews | 缺少编号时单选 PR，然后列出审查。 |
+| pr review create N | 提交审查意见 | POST R/pulls/{index}/reviews；已有审查提交使用 POST R/pulls/{index}/reviews/{id} | 缺少编号时单选 PR；按审查类型和内容要求提示输入，并明确最终提交的审查结果。 |
+| pr reviewer add N | 请求审查 | POST R/pulls/{index}/requested_reviewers | 缺少编号时单选 PR；选择或输入审查者，候选来源与权限限制待验证。 |
+| pr merge N | 合并 PR | POST R/pulls/{index}/merge | 缺少编号时从待合并 PR 中单选；展示目标、合并方式并按已确认策略提示，具体可选方式以实例及仓库规则为准。 |
 
-PR 普通评论使用 Issue 评论接口；审查记录、审查评论和代码行评论使用 PR 审查相关接口，不能视为同一种评论。首版是否提供代码行评论专用命令待定。创建 PR 需要明确源分支与目标分支，跨仓库参数依服务端能力验证；合并方式、是否删除源分支及交互确认应由用户显式选择或按已确认默认值执行，权限、冲突和仓库保护规则由服务端判定，失败不能当作成功。
+PR 普通评论使用 Issue 评论接口；审查记录、审查评论和代码行评论使用 PR 审查相关接口，不能视为同一种评论。代码行评论专用命令不在首版，普通评论和 PR 级审查均纳入。创建 PR 需要明确源分支与目标分支，跨仓库参数依服务端能力验证；合并方式、是否删除源分支及交互确认应由用户显式选择或按已确认默认值执行，权限、冲突和仓库保护规则由服务端判定，失败不能当作成功。
 
 ### 4.4 Release
 
-| 建议命令 | 操作 | 28.3.0 API |
-| --- | --- | --- |
-| release list | 列出版本 | GET R/releases |
-| release view TAG | 按标签查看 | GET R/releases/tags/{tag} |
-| release create TAG | 创建 Release，可指定草稿、预发布及说明 | POST R/releases |
-| release edit TAG | 修改名称、说明、草稿或预发布状态 | GET R/releases/tags/{tag} 获取 ID，再 PATCH R/releases/{id} |
-| release asset list TAG | 查看附件 | 按标签查询 ID，再 GET R/releases/{id}/assets |
-| release asset upload TAG FILE | 上传附件 | 按标签查询 ID，再 POST R/releases/{id}/assets |
+| 首版命令 | 操作 | 28.3.0 API | 交互式设计 |
+| --- | --- | --- | --- |
+| release list | 列出版本 | GET R/releases | 子命令默认直接分页列出；持续菜单支持搜索和分页浏览。 |
+| release view TAG | 按标签查看 | GET R/releases/tags/{tag} | 缺少标签时从已有 Release 中单选。 |
+| release create TAG | 创建 Release，可指定草稿、预发布及说明 | POST R/releases | 缺少标签时选择已有标签或明确输入新标签；名称、说明、草稿和预发布选项可按用户选择填写。新标签行为需服务端验证。 |
+| release edit TAG | 修改名称、说明、草稿或预发布状态 | GET R/releases/tags/{tag} 获取 ID，再 PATCH R/releases/{id} | 缺少标签时单选已有 Release；未指定修改内容时选择字段并输入新值。 |
+| release asset list TAG | 查看附件 | 按标签查询 ID，再 GET R/releases/{id}/assets | 缺少标签时单选已有 Release，然后列出附件。 |
+| release asset upload TAG FILE | 上传附件 | 按标签查询 ID，再 POST R/releases/{id}/assets | 缺少标签时单选已有 Release；缺少文件路径时提示输入，首版一次上传一个文件，不提供额外原生文件选择器。 |
 
-Release 与 Git 标签是不同资源。创建 Release 对不存在标签的处理、标签指向、草稿发布规则和重复附件处理，需要结合服务器版本、权限及团队约定验证；失败时明确报告实际已完成的步骤。上传采用接口要求的文件表单，流式处理文件，报告文件过大、无权限或网络中断；写入结果未知时先查询服务器再决定是否重试。Release 或附件删除和附件下载的专用命令待确认，可先使用通用 API。
+Release 与 Git 标签是不同资源。创建 Release 对不存在标签的处理、标签指向、草稿发布规则和重复附件处理，需要结合服务器版本、权限及团队约定验证；失败时明确报告实际已完成的步骤。上传采用接口要求的文件表单，流式处理文件，报告文件过大、无权限或网络中断；写入结果未知时先查询服务器再决定是否重试。Release 或附件删除和附件下载不提供首版专用命令，可使用通用 API；草稿创建、发布和同名冲突规则见 CLI 契约第 7 节。
 
 ### 4.5 仓库和开发上下文
 
-| 建议命令 | 操作 | 28.3.0 API |
-| --- | --- | --- |
-| repo view | 查看仓库 | GET R |
-| branch list | 列出分支 | GET R/branches |
-| tag list | 列出标签 | GET R/tags |
-| commit list / status REF | 查看提交列表及指定引用的汇总状态 | GET R/commits；GET R/commits/{ref}/status |
-| label list / milestone list | 列出仓库标签及里程碑 | GET R/labels；GET R/milestones |
+| 首版命令 | 操作 | 28.3.0 API | 交互式设计 |
+| --- | --- | --- | --- |
+| repo view | 查看仓库 | GET R | 无法唯一确定实例或仓库时，从可识别的候选项中单选；没有候选时提示显式输入。 |
+| branch list | 列出分支 | GET R/branches | 默认直接列出；仓库上下文不明确时先选择仓库。 |
+| tag list | 列出标签 | GET R/tags | 默认直接列出；仓库上下文不明确时先选择仓库。 |
+| commit list | 查看提交列表 | GET R/commits | 默认直接列出；仓库上下文不明确时先选择仓库。 |
+| commit status REF | 查看指定引用的汇总状态 | GET R/commits/{ref}/status | 未指定时使用已验证的当前 HEAD；无本地 HEAD 时选择分支或输入引用。 |
+| label list / milestone list | 列出仓库标签及里程碑 | GET R/labels；GET R/milestones | 默认直接列出；仓库上下文不明确时先选择仓库。 |
 
-建议显式指定的实例、仓库或 remote 优先于自动推断；缺省值可来自当前实例配置和本地 remote。具体优先级、默认 remote 和冲突规则需形成统一契约。多 remote 或多实例无法唯一匹配时返回可操作的错误，交互式选择可作为补充，非交互模式不得猜测。显式指定实例和仓库时，在非 Git 目录也应能使用 API 命令。
+从启动目录默认发现仓库，实例、账号、仓库和 remote 按 [CLI 契约第 2 节](cli-contract.md)固定的优先级解析。多 remote 或多实例无法唯一匹配时返回可操作的错误，交互式选择可作为补充，非交互模式不得猜测。显式指定实例和仓库时，在非 Git 目录也应能使用 API 命令。
 
 ### 4.6 使用示例和输出
 
-以下仅展示预期体验，参数和默认值仍待确认：
+以下展示首版入口，完整行为和默认值以 CLI 契约为准，示例不代表已实现：
 
 ~~~sh
-gitea-cli issue list --repo acme/demo --state open
-gitea-cli issue create --repo acme/demo --title "修复登录问题" --body "问题描述"
-gitea-cli pr create --repo acme/demo --base main --head feature/login --title "修复登录"
-gitea-cli pr review list 42 --repo acme/demo
-gitea-cli pr merge 42 --repo acme/demo
-gitea-cli release create v1.0.0 --repo acme/demo --draft --notes-file notes.md
-gitea-cli release asset upload v1.0.0 ./build/app.zip --repo acme/demo
-gitea-cli api --instance team --method GET /repos/acme/demo
+sotea issue list --repo acme/demo --state open
+sotea issue create --repo acme/demo --title "修复登录问题" --body "问题描述"
+sotea pr create --repo acme/demo --base main --head feature/login --title "修复登录"
+sotea pr review list 42 --repo acme/demo
+sotea pr merge 42 --repo acme/demo
+sotea release create v1.0.0 --repo acme/demo --draft --notes-file notes.md
+sotea release asset upload v1.0.0 ./build/app.zip --repo acme/demo
+sotea api --instance team --method GET /repos/acme/demo
 ~~~
 
 列表建议默认一页，支持显式分页与全部页获取；字段、筛选和默认排序按各端点能力确定。普通命令建议提供人类可读和 JSON 输出，正常结果写 stdout，诊断信息写 stderr。非交互式写入必须提供必要输入，禁止意外进入交互；通用 API 保留原始响应和文件流能力。
@@ -155,7 +169,7 @@ CLI 以 macOS Terminal、iTerm2 和 Windows PowerShell 为终端使用目标。P
 | 命令与参数 | [Cobra](https://github.com/spf13/cobra) | 命令层级、参数、帮助及 shell 补全。 |
 | 输出与布局 | [Lip Gloss](https://github.com/charmbracelet/lipgloss) | 彩色、加粗、对齐、边框与表格布局。 |
 
-Cobra 的版本已在 go.mod 中锁定；Lip Gloss 的具体版本在实施终端渲染时结合 Go 1.27.3、平台兼容性、许可证和维护状态评估并锁定。当前普通 CLI 不引入完整的终端交互框架；如后续需要键盘导航的交互工作台，可另行评估 Bubble Tea。业务数据和应用服务不依赖终端样式库，文本渲染集中在输出层。
+Cobra 的版本已在 go.mod 中锁定；Lip Gloss 的具体版本在实施终端渲染时结合 Go 1.27.3、平台兼容性、许可证和维护状态评估并锁定。键盘选择组件及是否需要持续会话界面见第 4.8 节。业务数据和应用服务不依赖终端样式库，文本渲染集中在输出层。
 
 #### 输出契约
 
@@ -176,11 +190,92 @@ Cobra 的版本已在 go.mod 中锁定；Lip Gloss 的具体版本在实施终�
 38   OPEN    增加发布流程      alice      enhancement
 ~~~
 
+### 4.8 交互式命令与目标选择
+
+#### 4.8.1 目标与范围
+
+首个场景是用户执行 `sotea issue close` 时没有指定 Issue 编号，CLI 自动查询当前目标仓库的未关闭 Issue，展示可搜索、可勾选的列表，让用户选择一个或多个目标并执行关闭。参数齐全时保留直接指定目标的方式，写入仍须确认或显式 --yes。
+
+本节的命令参数选择器适用于单条命令执行期间；持续菜单界面是第 4.8.6 节的补充方案。不假设用户必须使用自然语言、AI 服务或额外 API 密钥。Issue 选择器的输入、分页、展示和取消机制用于当前表中所有交互命令，多选范围按 CLI 契约。
+
+#### 4.8.2 Issue 关闭流程
+
+1. 解析显式实例与仓库，或按第 4.5 节解析本地上下文；无法唯一确定时先解决歧义，再展示候选 Issue。最终目标实例和仓库须始终可见。
+2. 未提供编号且满足交互条件时，通过共享应用服务查询 Issue：请求 `GET R/issues`，显式使用 `state=open` 和 `type=issues`，分页加载。按第 7 节处理各版本能力和鉴权，不将 PR 混入 Issue 列表。
+3. 列表至少展示编号、标题和状态，可视空间允许时展示负责人和标签；以编号作为选择值，而非标题或列表位置。支持键盘移动、勾选／取消、搜索、加载后续页和取消退出；禁止默认选中第一项。标题中的控制字符不能作为终端控制序列执行。
+4. 选择或直接传入编号后展示目标仓库及完整已选编号，再由用户确认关闭；默认不确认，--yes 可显式跳过。未选择目标或在提交前取消时不发起关闭请求。实际按键与确认文案在终端验收时确定。
+5. 按用户选择向服务端发送关闭操作：对每个编号执行 `PATCH R/issues/{index}` 并设置关闭状态；遵守版本兼容、权限和超时策略。批量操作不是事务，逐项记录成功、跳过、失败、结果未知及未执行的编号，汇总给用户；若存在失败或结果未知，返回非零退出状态。已达目标状态报告 skipped，退出码及逐项结果按 CLI 契约第 6 节。
+6. 某项请求超时或断线时标记结果未知，不自动重试；用户取消发生在提交过程中时停止尚未开始的请求，已完成的不回滚，进行中的请求按实际结果或未知状态报告。
+
+交互示意（按键和命令参数尚未实现）：
+
+~~~text
+$ sotea issue close --repo acme/demo
+选择要关闭的 Issue（仓库：acme/demo）
+搜索：login
+
+  [x] #42  OPEN  修复登录问题          chiyoshi
+  [ ] #38  OPEN  更新登录文档          alice
+  [x] #35  OPEN  清理登录过期提示      bob
+
+↑↓ 移动  空格 勾选  / 搜索  Enter 确认选择  Esc 取消
+将关闭 acme/demo 中的 #42、#35，继续？[y/N]
+
+已关闭 #42
+已关闭 #35
+~~~
+
+支持 issue close 42 和 issue close 42 35，PR 关闭／重开及 Issue 重开使用相同多目标语法，最多 100 个目标。直接传编号也确认；--yes 只跳过确认，不能在缺少目标时自动勾选。脚本需完整参数加 --yes。
+
+#### 4.8.3 候选列表、搜索与并发
+
+- 默认先获取一页并按需加载后续页面，不将当前页标为全部结果；展示加载状态、当前筛选条件及已选择数量。按实例配置、服务器分页上限和资源限制控制请求量，不在后台无限拉取所有 Issue。
+- 支持跨已加载页面保留勾选，并按实例、仓库和 Issue 编号去重。搜索优先使用目标版本已验证的服务端搜索参数；如只能在已加载结果中筛选，必须明确标注搜索范围，不声称搜索了整个仓库。
+- 搜索条件变化或翻页后，已选项目保持可检查、可取消；确认前列出全部已选编号，不能只展示当前页。默认没有全选或批量修改隐藏结果的行为。
+- 分页期间服务端数据可能变化，不能假设列表是原子快照。提交时按所选编号逐项调用服务器；目标已关闭、被删除或权限发生变化时，按实际响应报告，不能把未执行或失败项当成成功。预先重新读取也不能消除读取到写入之间的竞争。
+
+#### 4.8.4 交互判定与输出
+
+默认仅当 stdin、stdout 和 stderr 均为可交互终端，且没有明确选择非交互或机器输出模式时启动选择器。CI、管道、重定向、缺少终端或用户显式要求非交互时，缺少编号应立即报错并提示如何传入编号，不等待输入、不自动选择。首版提供 --no-interactive 禁止提示，不提供绕过终端检测的强制交互选项；--yes 不改变终端判定。
+
+交互界面写入终端诊断流，最终操作结果写 stdout，错误写 stderr；JSON 模式的 stdout 只包含结构化结果。MCP 使用协议参数显式传递 Issue 编号或编号列表，不启动 CLI 选择器或读取 MCP 的 stdin；CLI 与 MCP 复用相同的查询和关闭应用服务。两者的确认机制分别设计，不能把客户端展示当成服务端权限控制。
+
+#### 4.8.5 组件与验证
+
+建议评估 [Huh](https://github.com/charmbracelet/huh) 的选择与表单组件，配合现有 Cobra 和拟引入的 Lip Gloss；动态分页、跨页保留勾选、搜索和取消需要验证组件能否满足，必要时再评估 [Bubble Tea](https://github.com/charmbracelet/bubbletea) 等方案。具体库、版本、终端兼容性及无障碍体验在实现时验证后确定，不将候选库视为已引入。
+
+测试应覆盖单选、多选、搜索、跨页保留选择、重名标题、编号去重、空列表、获取失败、过期状态、权限错误、部分成功、结果未知、提交前后取消、非终端、JSON / CI 模式，以及 macOS Terminal、iTerm2、Windows Terminal 中的 PowerShell。使用可控服务与终端模拟进行自动化验证，再在目标终端和隔离 Gitea 实例验证完整流程。
+
+#### 4.8.6 持续菜单界面（首版纳入）
+
+在仓库目录或其子目录的可交互终端中执行无参数 `sotea` 时进入持续菜单，识别当前 Git 仓库及可确定的实例，显示当前上下文。用户可以进入 Issue、PR、Release 和 Git 等操作，完成后返回菜单继续操作，直到主动退出；菜单覆盖当前 TDD 的全部首版命令；首次使用通过账号入口完成连接和登录。该行为已纳入首版，尚未实现。
+
+~~~text
+$ cd /path/to/repo
+$ sotea
+
+sotea · acme/demo
+实例：team
+
+  > Issue
+    Pull Request
+    Release
+    Git
+    切换实例 / 仓库
+    退出
+~~~
+
+交互式启动时复用 Git 仓库发现和实例映射；非 Git 目录、没有 remote 或多个候选时，应显示状态并允许明确选择或输入，不能猜测目标。终端无参数菜单本身不自动执行写操作。搜索、列表、选择、写入确认和批量错误处理复用第 4.8.2 至 4.8.4 节的规则。
+
+无终端、重定向、CI 或机器输出模式下不启动持续菜单，无参数时显示帮助并成功退出，避免阻塞；有子命令时继续执行原有 CLI 语义。持续菜单可使用终端的全屏输出；单条命令的交互选择仍遵循第 4.8.4 节。退出、取消或收到中断时清理请求和子进程、恢复终端状态。
+
+持续界面需要管理导航、异步加载、状态和终端生命周期，可评估 Bubble Tea 配合 Lip Gloss；简单表单可同时评估 Huh。库选择、版本与各终端兼容性通过原型和测试确认。菜单、CLI 与 MCP 共享应用服务，不通过相互调用并解析文本输出复用功能。
+
 ## 5. Git 集成
 
 ### 5.1 执行与仓库发现
 
-建议首版调用系统 Git，以复用用户已有配置、凭证辅助程序和 SSH 环境；需要 Git 的操作应报告缺失的 Git，并允许后续评估配置可执行文件路径。仅调用 Gitea API 的场景不依赖安装 Git。Git 最低支持版本尚待实测确定。
+首版调用系统 Git，以复用用户已有配置、凭证辅助程序和 SSH 环境；需要 Git 的操作应报告缺失的 Git，并允许后续评估配置可执行文件路径。仅调用 Gitea API 的场景不依赖安装 Git。Git 最低支持版本尚待实测确定。
 
 通过参数数组启动进程，不将用户参数拼接为 shell 命令。CLI 透传入口继承终端输入输出，保留 Git 的正常退出码和交互；启动失败、收到信号或被取消时单独报告。覆盖 Windows 路径、参数引用和子进程清理。
 
@@ -188,9 +283,9 @@ Cobra 的版本已在 go.mod 中锁定；Lip Gloss 的具体版本在实施终�
 
 ### 5.2 凭证与非交互执行
 
-Git 远程操作继续使用 Git 配置的凭证辅助程序或 SSH 机制。API 认证与 Git 认证分开管理；可选地提供明确启用的 Git 凭证来源，按协议、主机、路径及必要的用户名查询辅助程序，并在用于 API 前验证适用性。获取到的密钥仅在所需期间保存在内存，不读取 SSH 私钥内容，不写入日志。
+Git 远程操作继续使用 Git 配置的凭证辅助程序或 SSH 机制。API 认证与 Git 认证分开管理；首次登录优先复用经验证的 Git HTTPS 凭证来源，按协议、主机、路径及必要的用户名查询辅助程序，并在用于 API 前验证适用性。获取到的密钥仅在所需期间保存在内存，不读取 SSH 私钥内容，不写入日志。
 
-MCP 的 stdin 和 stdout 属于协议连接，不可交给 Git 进程。MCP 中的 Git 调用须捕获输出、禁止交互、设置超时，响应取消并清理子进程；还需处理辅助程序或 SSH 仍可能阻塞的情况。是否向 MCP 暴露任意 Git 子命令和写入操作待确认。
+MCP 的 stdin 和 stdout 属于协议连接，不可交给 Git 进程。MCP 中的 Git 调用须捕获输出、禁止交互、设置超时，响应取消并清理子进程；还需处理辅助程序或 SSH 仍可能阻塞的情况。MCP 首版仅提供固定的 Git 上下文读取，不暴露任意 Git 子命令或 Git 写操作。
 
 ## 6. Gitea API 客户端
 
@@ -204,7 +299,7 @@ MCP 的 stdin 和 stdout 属于协议连接，不可交给 Git 进程。MCP 中�
 
 ### 6.2 业务操作
 
-应用服务提供 Issue、Pull Request、Release 及开发上下文等常用操作，候选命令与 28.3.0 接口映射见第 4 节，参数经验证后交给 API 客户端。各命令的首版清单、写操作及输出字段待产品确认。通用 API 覆盖入口与业务命令并行：能构造服务器支持的请求并不意味着每个端点都有专用命令，或全部端点均经过逐版本测试。
+应用服务提供 Issue、Pull Request、Release 及开发上下文等常用操作，首版命令与 28.3.0 接口映射见第 4 节，参数经验证后交给 API 客户端。各命令按本节及 CLI 契约实施，不再以候选清单处理；JSON 输出使用第 10 节链接的共同契约。通用 API 覆盖入口与业务命令并行：能构造服务器支持的请求并不意味着每个端点都有专用命令，或全部端点均经过逐版本测试。
 
 ## 7. Gitea 多版本兼容
 
@@ -277,14 +372,14 @@ curl --fail https://git.example.com/api/v1/version
 
 #### 7.1.5 用户可见诊断
 
-建议新增实例诊断入口，命令名称和 JSON 字段仍待确定：
+首版提供实例诊断入口，输出沿用 CLI 契约的结构化结果：
 
 ~~~sh
-gitea-cli instance info --instance team --refresh
-gitea-cli instance info --instance team --refresh --json
+sotea instance info --instance team --refresh
+sotea instance info --instance team --refresh --json
 ~~~
 
-展示实例根地址、服务端原始版本、检测状态、检测时间、是否来自缓存、匹配的精确版本以及“定义已分析 / 实例测试状态”；不把其中任何一项笼统显示成“全部 API 兼容”。客户端自身的 `gitea-cli version` 保留为显示 CLI 版本，两者含义不同。MCP 复用同一版本检测服务，并以结构化方式返回相同诊断；stdout 仍只承载 MCP 协议。
+展示实例根地址、服务端原始版本、检测状态、检测时间、是否来自缓存、匹配的精确版本以及“定义已分析 / 实例测试状态”；不把其中任何一项笼统显示成“全部 API 兼容”。客户端自身的 `sotea version` 保留为显示 CLI 版本，两者含义不同。MCP 复用同一版本检测服务，并以结构化方式返回相同诊断；stdout 仍只承载 MCP 协议。
 
 #### 7.1.6 验证
 
@@ -304,25 +399,45 @@ gitea-cli instance info --instance team --refresh --json
 
 这些是需求指定的精确目标，表格不是已支持声明。每个版本需记录发行来源、实例构建信息、相关 API 定义、执行时间与测试结果；模拟服务仅验证客户端逻辑，不能证明实际版本兼容。其他补丁版本是否承诺支持待确认。Go 工具链版本、Gitea 服务端版本和 API 路径版本分别管理。
 
+### 7.3 七版本必需支持的实施规则
+
+七个精确版本必须支持第 4 节的全部首版共同功能，以及认证、菜单、批量和 MCP 对同一业务的调用。原生端点缺失须完成适配后才能满足发布门槛；任何必需功能未验证、只返回不支持或没有可行适配时，正式发布阻断并记录实际问题，不能自行删掉目标版本。
+
+共同功能的参数基线为：Issue 状态、关键词、标签、负责人及里程碑相关操作；PR 状态、源／目标分支、标题正文、负责人标签里程碑、普通评论、PR 级审查及审查请求、合并选项；Release 标签、目标提交、名称正文、草稿／发布、预发布和单文件附件。较新版本的 projects、tag_message、tag_filter、代码行回复／解决等仅是差异调研中的扩展，首版专用命令不增加这些专有字段；通用 API 仍可显式调用。
+
+| 差异 | 首版适配和验收 |
+| --- | --- |
+| 较早样本没有独立负责人增删端点 | 新样本用原生端点；旧样本读取当前负责人集合，只计算用户要求的增删，再 PATCH 完整集合。写前重读、同进程串行、写后核对；发现变化或结果不符时报冲突／未知，不自动覆盖重试。预览必须说明旧版不是原子增删，--yes 表示接受该已说明操作语义；其他进程的并发更新仍可能覆盖，不能宣称全局无丢失。正常非并发增删及已知并发错误处理都须测试。 |
+| PR 创建字段在旧版不足 | 以基础 PR 创建加已有的审查请求或编辑接口完成相同意图；先明确预览全部步骤。后续步骤失败时返回已创建 PR 和未完成步骤，不能重新创建 PR 或假装事务回滚。 |
+| PR 合并字段改名 | 分版本构造各自文档对应字段，验证旧字段兼容而不依赖猜测；绑定 head SHA，失败不换一种字段自动重试合并。 |
+| 筛选字段在旧样本不足 | 共同基线优先使用所有版本已具备参数；确需本地筛选时完整遍历目标查询集再筛选及分页，不先截一页造成漏项。默认最多扫描 10000 项，超限返回 FILTER_LIMIT 并要求缩小条件，不返回看似完整的部分结果。 |
+| 可选响应字段或清空语义不同 | 业务模型区分缺失、零值和明确清空，忽略未知响应字段；清空里程碑、空负责人等必须按各版测试。能力探测不能用写请求。 |
+
+旧版并发能力的限制是服务端边界，不因本地加锁而消失；若团队最终要求并发更新也必须原子无丢失，则需服务端支持或额外协作机制，当前版本矩阵不能通过客户端单独承诺。此处不减少首版操作范围，正常用户权限、受保护分支和真实冲突仍按业务错误处理。
+
+七版本通过要求为需求 REQ-03、REQ-05 至 REQ-08，以及相同操作的 MCP 代表性回归，记录精确构建、账号权限、请求和实际结果。未知／未列版本单独按第 7.1 节处理，不能影响上述七版本的验收承诺。
+
 ## 8. 配置、认证与安全
 
-建议配置记录实例名称、完整服务地址、默认账号、仓库映射、私有 CA 路径和凭证引用；配置文件不保存明文 token。配置路径、格式及跨平台位置待确定。建议优先级为显式参数、环境变量、实例配置及程序默认值；不同配置项适用的来源、空值处理和冲突提示应在实现前逐项确定。
+首次启动默认从当前目录发现仓库、验证 Gitea 平台与身份，再继续业务命令或进入菜单。完整优先级、命令及生命周期见 [CLI 契约第 2–4 节](cli-contract.md)。
 
-初步使用 API token，支持通过安全交互输入配置，CI 可通过环境变量注入；不建议通过普通命令参数传递 token，避免进入 shell 历史和进程列表。MCP 的协议 stdin 不用于登录输入。持久凭证建议交由系统凭证管理器保管，密钥与完整实例地址及账号绑定，不遍历尝试其他实例的凭证。系统存储不可用时明确报错或使用用户显式提供的环境变量，不静默回退至明文文件。
+HTTPS Git 凭证通过 credential fill 查询并经 GET /api/v1/user 验证；无可复用凭证时配置独立 API token。SSH 登录不自动等于 API 登录，Git 的作者配置不等于远端账号。切换 sotea 账号不自动切换 Git SSH key；退出默认只删除 sotea 自有记录，清理共享 Git 凭证须单独选择并确认。
 
-配置写入采用临时文件和安全替换，限制平台允许的文件访问权限，并预留配置版本和迁移机制。日志、错误、URL、remote 和调试输出均需脱敏；服务器响应可能包含敏感信息，展示和记录前应按输出场景处理。配置、凭证和私有 CA 的实际平台实现与故障行为需在各系统验证。
+非敏感配置采用 JSON，默认 os.UserConfigDir()/sotea/config.json；--config 或 SOTEA_CONFIG 可覆盖。密钥存于系统安全存储，CI 可运行时注入；保持原子写、并发更新检查、版本迁移和脱敏。401 与 403 分别处理，无明文静默回退。系统适配器及依赖版本须在 macOS / Windows 验证。
 
 ## 9. MCP 服务
 
-服务由同一可执行文件启动，使用本地 stdio 传输。MCP 层通过选定 SDK 处理初始化、能力协商、工具发现、调用、取消和连接关闭；stdout 只承载协议消息，诊断写 stderr，进程退出时清理正在执行的操作。
+首版工具及严格输入、输出方案见 [mcp-design.md](mcp-design.md)。同一程序以 sotea mcp serve 提供本地 stdio，客户端启动子进程，stdout 仅承载协议，EOF 清理退出；不依赖菜单进程，也不开放 HTTP 守护服务。
 
-建议先设计仓库、Issue、PR 的只读工具，提供明确实例、仓库及工作目录输入，并复用应用服务的认证和上下文解析。MCP 服务启动目录不一定是目标仓库，不应假定当前目录有效。工具应提供稳定的输入 schema、结构化结果和可区分的错误，并限制调用时长、并发、输出和文件访问范围。
+默认只读，--allow-write 显式提供 prepare / commit / status 工具；--allow-raw-api 单独开放通用 API，写请求仍需要写权限开关。写入先准备明确目标及变更，由客户端展示和按其审批机制提交；服务端不能将确认 token 或工具 annotations 视作真人批准证明。实际 Gitea 权限始终生效。
 
-首版需求包含约定的授权写入场景；写入和删除工具、通用 API 工具、任意 Git 工具的具体范围，以及确认由客户端还是服务端执行，仍需确定。确认机制不能替代 Gitea 的账号权限检查。不得将 token 返回给 MCP 客户端，通用工具的认证头及跨来源请求要受同样约束。
+所有当前业务命令均有对应读取工具或写入 action；本地固定 Git 查询和附件上传需授权工作目录，不开放任意 shell / Git 写操作。MCP 通过显式参数或已保存的唯一上下文调用共享应用服务，缺参返回错误，不读取协议 stdin 做登录或选择。客户端工作目录不能假定为用户项目，配置需给 --workdir 或工具目标。
+
+工具错误、部分完成、结果未知、重复提交、跨进程限制、Schema 和各客户端验收均在专门设计中明确；目前没有实现结果。
 
 ## 10. 错误、输出与可观测性
 
-内部区分配置、认证、权限、仓库上下文、网络/TLS、服务端、版本能力、取消和写入结果未知等错误类别；保留必要上下文和底层原因。CLI 输出可操作的提示并返回非零状态，Git 透传保留正常 Git 退出码；MCP 返回协议允许的结构化工具错误。具体退出码映射和 API 响应格式待确定。
+内部区分配置、认证、权限、仓库上下文、网络/TLS、服务端、版本能力、取消和写入结果未知等错误类别；保留必要上下文和底层原因。CLI 输出可操作的提示并返回非零状态，Git 透传保留正常 Git 退出码；MCP 返回协议允许的结构化工具错误。CLI 的稳定 envelope、逐项状态与退出码见 [CLI 契约第 6 节](cli-contract.md)，MCP 的结构化结果和工具错误见 [MCP 设计第 2 节](mcp-design.md)；通用 API 与 Git 保留原始流规则。
 
 默认日志保持精简，调试日志可显式开启；所有级别均不得输出凭证。长输出和二进制响应应按流处理或限制大小，避免在 MCP 消息中无界返回。
 
@@ -330,7 +445,7 @@ gitea-cli instance info --instance team --refresh --json
 
 已确定为 macOS 和 Windows 提供预编译程序，用户无需安装 Go；同一程序包含 CLI 与 MCP 服务。建议首版构建 darwin/arm64、darwin/amd64 和 windows/amd64；windows/arm64 在具备运行验证条件后决定是否正式支持，Linux 支持仍待确认。最低操作系统版本、Git 版本及第三方依赖的平台限制需核实。
 
-建议 macOS 提供 tar.gz、Windows 提供 zip，附程序版本、构建提交、使用说明、许可证和 SHA-256 校验值；通过团队 Gitea 发布页分发是待确认方案。每个平台必须运行真实环境冒烟测试，交叉编译成功不足以证明可用。建议首版手动下载替换并保留配置；签名、公证、包管理器、自动更新及回滚策略待确认。
+建议 macOS 提供 tar.gz、Windows 提供 zip，附程序版本、构建提交、使用说明、项目 MIT 许可证和 SHA-256 校验值；通过团队 Gitea 发布页分发是待确认方案。每个平台必须运行真实环境冒烟测试，交叉编译成功不足以证明可用。建议首版手动下载替换并保留配置；签名、公证、包管理器、自动更新及回滚策略待确认。第三方依赖的许可证和随产物提供的声明应分别核对。
 
 ## 12. 测试和验收方案
 
@@ -341,23 +456,23 @@ gitea-cli instance info --instance team --refresh --json
 | Git 集成测试 | 临时仓库与 worktree、多个 remote、参数和退出码、凭证辅助程序、非交互取消。 |
 | Gitea 实例回归 | 对第 7 节每个精确版本验证通用 API、仓库、Issue、PR、Release 及约定 MCP 工具。 |
 | MCP 测试 | 协议初始化、工具发现与调用、错误、取消、EOF 清理，并使用真实客户端验证。 |
+| 持续菜单测试 | 无参数时的交互终端入口、仓库和非仓库目录、导航返回、退出恢复终端，以及非交互运行不阻塞。 |
 | 终端与输出测试 | 在 macOS Terminal、iTerm2 和目标 Windows PowerShell / 终端宿主验证颜色、加粗、表格、中文及窄窗口；覆盖重定向、NO_COLOR、颜色选项、JSON、原始响应与 MCP 协议输出。 |
+| 交互命令测试 | Issue 选择、搜索、跨页、多选、取消及批量部分失败；非终端和 MCP 不等待选择。 |
 | 发布冒烟测试 | 各正式支持系统和架构执行版本查看、API、Git 及 MCP 基本流程。 |
 
 重点覆盖私有 CA、缺少 Git 或凭证、remote 歧义、未知版本、包含空格或中文的路径、大文件、跨来源凭证保护和写入结果未知。业务流程覆盖 Issue 只列出 Issue、标签增量修改、PR 普通评论与审查区分、合并受保护分支失败、Release 按标签解析及附件上传。使用隔离的测试实例、组织及仓库执行有副作用的测试；测试数据和账号权限由测试环境准备。上述是后续测试计划，目前没有实现或执行结果。
 
 发布前逐项核对需求中的验收场景，记录每个 Gitea 版本、平台和测试结果；任何未验证的版本或环境应明确标记，不能以模拟测试或构建结果代替。
 
-## 13. 实施顺序与待决事项
+## 13. 实施顺序与剩余交付条件
 
-建议按工程与构建、配置和通用 API、Git 与上下文、业务命令和版本适配、MCP、平台测试与发布的顺序推进；这是依赖顺序，不改变首版需求范围。
+先实现配置、上下文、身份验证和通用 API，再完成七版本适配、业务命令及三种入口，最后执行真实平台和客户端验收。持续菜单和写入确认纳入首版，不作为延期项。REQ-01 至 REQ-14 的对应关系和发布门槛见需求第 5 章。
 
-| 待决事项 | 需要确定的内容 |
+| 事项 | 当前状态及后续工作 |
 | --- | --- |
-| 产品和命令 | 程序名称、Git 入口、业务命令清单、参数与输出契约。 |
-| 版本验证 | 所有目标版本的测试实例、28.3.0 测试产物及版本差异证据。 |
-| 认证 | 支持的认证方式、多账号、凭证存储、Git 凭证复用与优先级。 |
-| MCP | 工具清单、写入与删除范围、确认机制及资源限制。 |
-| 平台 | 架构、最低系统与 Git 版本、Windows ARM 和 Linux 的支持条件，以及 PowerShell 版本和终端宿主验证矩阵。 |
-| 发布 | 发布位置、签名、公证、安装渠道、升级与校验值的可信分发。 |
-| 依赖和配置 | Lip Gloss 的具体版本及 MCP/凭证库、配置格式与路径、版本迁移规则。 |
+| 范围和契约 | 当前命令、菜单、多选、确认、认证和 MCP 已形成实施契约；本轮不修改运行代码。 |
+| 版本验证 | 七个精确版本必须完成真实实例回归并记录镜像摘要，不以静态定义、跳过或返回不支持关闭必需项。 |
+| 环境与发布 | 仍需落实最低系统与 Git 版本、CPU 架构、Windows 宿主、发布地址和签名条件。 |
+| 依赖 | 样式、交互、MCP SDK 和凭证库的具体版本在实现时验证并锁定；必要库调整不能缩减首版行为。 |
+| 实现状态 | 当前工程仅提供基础 CLI；以上新增契约未实现，也未完成实例和客户端验收。 |

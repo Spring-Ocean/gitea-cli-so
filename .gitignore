@@ -1,6 +1,9 @@
 # Local build artifacts
 /bin/
 /dist/
+/sotea
+/sotea.exe
+# Legacy executable names from before the rename.
 /gitea-cli
 /gitea-cli.exe
 *.test
