@@ -1,6 +1,6 @@
 # sotea 首版运行与认证契约
 
-> 状态：首版目标契约已确认；P1 基础能力部分实现，后续业务与交互待实施
+> 状态：首版目标契约已确认；P2 上下文、认证、只读链路及 MCP 诊断原型已实现；后续业务与完整交互待实施
 >
 > 更新日期：2026-11-06
 >
@@ -90,7 +90,7 @@ Git fetch / push 等继续使用系统 Git 已配置的凭证辅助程序和 SSH
 
 实例记录包括名称、完整 URL、CA 路径、SSH 映射、账号引用及非敏感退出抑制标记；本地仓库绑定记录规范化路径、remote 和实例，跨设备路径不自动迁移。按配置项采用显式参数 > 对应环境变量 > 已保存配置 > 默认值；上下文及凭证项的特殊顺序以上表和第 4 节为准。
 
-P1 配置层已实现显式路径 > SOTEA_CONFIG > 默认路径的解析接口；--config 尚未注册到当前无配置业务的命令树，将随 P2 接入。文件上限 1 MiB，未知字段／格式版本、损坏 JSON 均报错。保存使用排他 .lock、完整内容摘要比较、同目录临时文件写入同步和替换，成功递增 revision；遗留锁不自动删除。锁仅协调遵守协议的 sotea 写入，外部编辑器在比较后的修改仍可能竞争；Snapshot.RevisionKey 供长驻进程重新读取后检测内容变化。
+P2 已将 --config 接入当前命令，按显式路径 > SOTEA_CONFIG > 默认路径解析。文件上限 1 MiB，未知字段／格式版本、损坏 JSON 均报错。保存使用排他 .lock、完整内容摘要比较、同目录临时文件写入同步和替换，成功递增 revision；遗留锁不自动删除。锁仅协调遵守协议的 sotea 写入，外部编辑器在比较后的修改仍可能竞争；Snapshot.RevisionKey 供长驻进程重新读取后检测内容变化。
 
 ### 4.3 Git 凭证匹配与复用范围
 
@@ -168,6 +168,10 @@ create 的负责人／标签是初始集合；edit 的 --assignee 和 --label �
 
 未被所有目标版本支持的筛选条件可按 TDD 第 7.3 节在完整有界查询后本地计算；PR 搜索不能仅筛当前页却显示为整个仓库搜索。排序保留服务器结果顺序，不宣称跨版本顺序一致。
 
+Issue 的文本搜索统一为标题／正文中不区分大小写的子串匹配，在完整有界查询集上计算，避免异步索引漏掉刚创建的数据；多个 --label 采用任一匹配。多标签、包含逗号的标签名及未知版本按同一有界扫描规则处理，再执行筛选和分页，超过 10000 项报 FILTER_LIMIT，不返回伪完整结果。
+
+Issue 创建后按返回编号读回全部显式字段。确认已创建但字段未被保留时返回 partial／退出 3，保留已创建编号和逐步结果，提示检查权限；读回失败同样保留创建成功与核对未知的步骤。不得为补齐字段自动重建 Issue。
+
 ## 6. 写入和结果契约
 
 ### 6.1 确认与参数
@@ -211,10 +215,29 @@ Release create 默认 draft=true、prerelease=false；--publish 明确直接发�
 - [Git credential contexts](https://git-scm.com/docs/gitcredentials)：协议、主机及 useHttpPath 的匹配规则。
 - [Gitea API authentication](https://docs.gitea.com/development/api-usage/)：API 认证与 token。文档站描述不代表七个精确版本全部具备相同认证扩展，必须按隔离实例测试确认。
 
-## 9. 当前 P1 可用入口
+## 9. 当前可用入口（P3）
 
-当前注册 version、help／补全及 git；基础公共参数为 --json、--workdir、--no-interactive，其余参数按对应能力逐步接入。version --json 使用第 6 节 envelope；帮助保持普通帮助文本。无参数暂时显示帮助，P5 按本契约接入菜单。
+当前注册 version、help／补全、git、五类 auth、instance info、repo view、branch／tag／commit／label／milestone list、commit status、全部 Issue 命令、任意方法 api 和 mcp serve。无参数暂时显示帮助，P5 按本契约接入持续菜单；完整业务范围仍按前文保留。
 
-Git 示例：sotea --workdir /path/to/repo git -- status。sotea 公共选项放在 git 之前；git 后全部参数原样交给系统 Git，可选的第一个 -- 仅作为分隔符移除。前置 --json 与 Git 透传不兼容；后置 --json 则属于 Git 参数，按 Git 自身规则处理。--no-interactive 只禁止 sotea 提示，Git 透传仍遵守 Git 自己的交互配置。
+公共选项已接入 --json、--workdir、--no-interactive、--instance、--account、--repo、--remote、--config、--yes，并增加 --ca-file、--proxy 和 --confirm-instance。首次来源确认不由 --yes 代替；首次公开仓库读取在来源确认及真实读取成功后只保存非敏感映射，不强制登录。--color 与完整样式在 P5 接入。
 
-基础适配器与实际验证见 [P1 记录](p1-foundation.md)，当前状态不缩减前文规定的首版范围。
+Git 示例：sotea --workdir /path/to/repo git -- status。sotea 公共选项放在 git 之前；git 后全部参数原样交给系统 Git，可选的第一个 -- 仅作为分隔符移除。前置 --json 与 Git 透传不兼容；后置 --json 属于 Git 参数。--no-interactive 只禁止 sotea 提示，Git 透传仍遵守 Git 自己的交互配置。
+
+auth login／refresh 的 token 入口包括安全终端或 --with-token；--credential-source 选 git／token／environment，Git 的 --auth-type 选 basic／token。--name 只给新实例命名；刷新必须指定已保存账号。auth logout --forget-git 的非交互额外确认使用 --confirm-forget-git，--yes 不能代替该共享凭证范围确认。
+
+原始 api 提供任意方法、--query、--header、--include 以及第 10 节的请求体／上传／下载。版本入口未知或被拦截不会阻止明确 API 请求；未确认来源不得发送凭证。默认 stdout 为 body，--include 增加状态与头；--json 不包装原始响应，失败诊断仅走 stderr。认证／Host 相关头由上下文控制；非读取方法遵循确认契约。
+
+mcp serve 当前只有 sotea_instance_info 原型，协商 2025-11-25／2025-06-18，协议 stdin 不参与登录或补参。其余工具及真实 Harness 验收仍按 P6／P7 实施。当前实现、依赖、边界和证据见 [P2 记录](p2-readonly.md)。
+
+
+## 10. P3 通用 API 文件契约
+
+任意方法均使用用户明确指定的路径／参数，不设置业务端点白名单。--data 提供原始 UTF-8 文本，--input 读取普通文件原始字节，--upload FIELD=FILE 可重复构造流式 multipart，三类来源互斥；--form NAME=VALUE 仅用于 multipart。请求体不按版本改写，写方法默认预览并确认，脚本必须 --yes。
+
+默认原始响应上限 64 MiB，可用 --max-response-bytes 显式调整；--timeout 默认 30 秒，写入建议 60 秒、上传建议 300 秒，取消可提前结束。原始流不进入业务 JSON 或样式渲染。--output FILE 仅在 HTTP 成功且完整接收／同步／关闭后落盘，--output - 等于 stdout；非成功响应不创建目标文件。
+
+写请求已收到 2xx 后，响应超限、响应读取／关闭失败或本地输出／文件提交失败均报告 PARTIAL_FAILURE／退出 3，提示先查询远端再决定后续操作；尚未取得响应的已发送写入仍按 RESULT_UNKNOWN／退出 4，主动取消仍以 130 优先。stdout 已流出的部分原始内容不会撤回或改写。
+
+--body-file、--input 与 --upload 只接受普通文件，符号链接仅在实际目标为普通文件时可用。打开前后均核对类型；POSIX 使用非阻塞打开，防止检查后被替换为命名管道而等待写入者。目录、管道和设备拒绝输入，不通过后台无限等待读取特殊文件。
+
+DEC-03 定案：显式下载永不覆盖已有目标，不提供隐式或强制覆盖选项。目标目录必须存在；同目录临时文件使用独立名称，接收／同步后采用不覆盖的硬链接提交，目标在传输期间被其他进程创建也返回冲突并保持其内容。失败、超限、取消清理临时文件，不留下伪完整目标。文件系统不支持所需提交语义时明确失败，不回退到可能覆盖的 rename；Windows／特殊文件系统仍需实测。

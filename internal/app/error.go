@@ -14,24 +14,31 @@ type Code string
 // 应用错误类别按配置、认证、外部调用和执行状态划分。
 // HTTPStatus 可保留服务端状态，类别不替代实际远端权限检查。
 const (
-	InvalidArgument  Code = "INVALID_ARGUMENT"
-	ConfigError      Code = "CONFIG_ERROR"
-	ConfigConflict   Code = "CONFIG_CONFLICT"
-	AuthRequired     Code = "AUTH_REQUIRED"
-	IdentityMismatch Code = "AUTH_IDENTITY_MISMATCH"
-	PermissionDenied Code = "PERMISSION_DENIED"
-	ContextRequired  Code = "CONTEXT_REQUIRED"
-	ContextAmbiguous Code = "CONTEXT_AMBIGUOUS"
-	NetworkError     Code = "NETWORK_ERROR"
-	TLSError         Code = "TLS_ERROR"
-	ServerError      Code = "SERVER_ERROR"
-	IOError          Code = "IO_ERROR"
-	GitUnavailable   Code = "GIT_UNAVAILABLE"
-	GitError         Code = "GIT_ERROR"
-	ResponseTooLarge Code = "RESPONSE_TOO_LARGE"
-	Cancelled        Code = "CANCELLED"
-	PartialFailure   Code = "PARTIAL_FAILURE"
-	ResultUnknown    Code = "RESULT_UNKNOWN"
+	InvalidArgument      Code = "INVALID_ARGUMENT"
+	ConfigError          Code = "CONFIG_ERROR"
+	ConfigConflict       Code = "CONFIG_CONFLICT"
+	AuthRequired         Code = "AUTH_REQUIRED"
+	IdentityMismatch     Code = "AUTH_IDENTITY_MISMATCH"
+	PermissionDenied     Code = "PERMISSION_DENIED"
+	ContextRequired      Code = "CONTEXT_REQUIRED"
+	ContextAmbiguous     Code = "CONTEXT_AMBIGUOUS"
+	NotFound             Code = "NOT_FOUND"
+	Conflict             Code = "CONFLICT"
+	VersionUnknown       Code = "VERSION_UNKNOWN"
+	CompatibilityError   Code = "COMPATIBILITY_ERROR"
+	PreconditionChanged  Code = "PRECONDITION_CHANGED"
+	FilterLimit          Code = "FILTER_LIMIT"
+	ResourceTypeMismatch Code = "RESOURCE_TYPE_MISMATCH"
+	NetworkError         Code = "NETWORK_ERROR"
+	TLSError             Code = "TLS_ERROR"
+	ServerError          Code = "SERVER_ERROR"
+	IOError              Code = "IO_ERROR"
+	GitUnavailable       Code = "GIT_UNAVAILABLE"
+	GitError             Code = "GIT_ERROR"
+	ResponseTooLarge     Code = "RESPONSE_TOO_LARGE"
+	Cancelled            Code = "CANCELLED"
+	PartialFailure       Code = "PARTIAL_FAILURE"
+	ResultUnknown        Code = "RESULT_UNKNOWN"
 )
 
 // Error 保留稳定类别、非敏感提示和底层原因。
@@ -93,7 +100,7 @@ func ExitCode(err error) int {
 	var failure *Error
 	if errors.As(err, &failure) {
 		switch failure.Code {
-		case InvalidArgument, ConfigError, ConfigConflict, ContextRequired, ContextAmbiguous:
+		case InvalidArgument, ConfigError, ConfigConflict, ContextRequired, ContextAmbiguous, ResourceTypeMismatch:
 			return 2
 		case Cancelled:
 			return 130

@@ -142,3 +142,7 @@ python3 scripts/compare-gitea-api.py /tmp/gitea-api-spec > docs/gitea-api-differ
 ~~~
 
 重新生成后核对源文件 SHA-256；标签如被移动、网络返回了不同内容或脚本算法调整，先查明原因再更新结论。脚本不会连接 Gitea 实例或执行写操作。
+
+## P3 实测进展（2026-11-06）
+
+七个固定精确版本均已用同一最终 sotea 产物执行 Issue 创建／编辑／清空、评论、标签／负责人增量、筛选／分页、批量状态、PR 类型拒绝、确认边界及通用 API 文件传输。结果与镜像摘要见 [P3 记录](p3-issue.md)及 [机器证据](validation/p3-result.json)。该结果覆盖 P3 场景，不将七版结论外推到 PR／Release／完整 MCP、全部 API 或未验证的平台；本文早期静态比较记录保留为研究过程。

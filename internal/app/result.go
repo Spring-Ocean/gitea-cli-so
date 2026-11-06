@@ -75,6 +75,8 @@ func NewResult(target Context, items []Item, err error) Result {
 		switch item.Status {
 		case Success, Skipped:
 			good = true
+		case Partial:
+			good, bad = true, true
 		case Unknown:
 			bad, unknown = true, true
 		case Canceled:
@@ -84,6 +86,9 @@ func NewResult(target Context, items []Item, err error) Result {
 		}
 	}
 	if result.Error != nil {
+		if result.Error.Code == PartialFailure {
+			good, bad = true, true
+		}
 		unknown = unknown || result.Error.Code == ResultUnknown
 		canceled = canceled || result.Error.Code == Cancelled
 	}
@@ -115,6 +120,9 @@ func (r Result) ExitCode() int {
 	default:
 		if r.Error != nil {
 			return ExitCode(r.Error)
+		}
+		if len(r.Items) == 1 && r.Items[0].Error != nil {
+			return ExitCode(r.Items[0].Error)
 		}
 		return 1
 	}

@@ -1,6 +1,6 @@
 # sotea MCP 工具设计
 
-> 状态：首版实施方案，尚未实现
+> 状态：P2 已实现仅含实例诊断的 stdio 原型；完整首版工具与 Harness 验收仍待实施
 >
 > 更新日期：2026-11-06
 >
@@ -154,3 +154,12 @@ prepare 返回计划及摘要。客户端展示“关闭 team / acme/demo 的 #4
 以 Codex、Claude Code、Cursor、VS Code 中至少各一款约定版本客户端记录实际验证结果；具体客户端版本作为验收证据，不预先声称全部兼容。检查 stdio 启动、工具发现、只读调用、明确参数和错误、两阶段写入、取消及 EOF 清理。各客户端批准 UI 不相同时记录其限制。
 
 自动化验证只读模式不暴露写入、Schema 拒绝未知字段、计划失效、重复并发提交不重放、身份变化、本地文件边界、协议输出纯净和敏感信息脱敏；真实 Gitea 七版本执行完整业务回归。协议 SDK 和具体协议版本在集成时锁定并测试，设计依据是 [MCP Tools](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) 与 [stdio 传输](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports)。
+
+
+## 10. 当前 P2 原型
+
+当前 mcp serve 只注册 sotea_instance_info，复用配置重读、上下文、认证及版本诊断服务，不通过启动 CLI 或解析其文本实现。官方 SDK 锁定 v1.8.0，明确协商 2025-11-25／2025-06-18，严格关闭未知输入属性，提供 readOnlyHint、outputSchema／structuredContent 和业务 isError。默认最多四个并发诊断，输入帧上限 256 KiB。
+
+两版本真实 stdio 初始化、工具发现、诊断、非法属性、业务失败后继续调用、配置变更缓存失效和 EOF 已通过。MCP 未给 --workdir 时不从宿主 cwd 发现 Git；未登记 URL 的实例诊断仅做匿名版本读取，不读取凭证或建立登录。
+
+本阶段不提供 --allow-write／--allow-raw-api、其余读取工具、写计划或 MCP 登录，也未把 SDK 协议测试当作 Codex／Claude Code／Cursor／VS Code 验收。第 1 至 9 节继续作为完整首版目标；原型证据及依赖许可说明见 [P2 记录](p2-readonly.md)。

@@ -189,7 +189,7 @@ Go 官方发布历史中列有 [Go 1.27.3](https://go.dev/doc/devel/release)。�
 
 各平台的最低操作系统版本应在核对团队设备、Go 1.27.3 的支持范围以及第三方依赖后确定，不能仅以构建成功作为兼容承诺。Go 的 [平台支持策略](https://go.dev/wiki/PortingPolicy)和[目标平台列表](https://go.dev/doc/install/source#environment)可作为评估依据。
 
-Windows 最低支持已确定为 Windows 10 22H2 amd64，Windows 11 25H2 作为较新系统的验收基线；Windows 10 必须覆盖自带 PowerShell 5.1 和 Windows Terminal，不强制用户升级系统或安装 PowerShell 7。其余调研建议为 macOS 15、Git 2.43，Windows 11 推荐 PowerShell 7.6 LTS 与 Windows Terminal；macOS 13／14 仍仅列可选兼容环境。依据、终端要求及验收矩阵见 [platform-support.md](platform-support.md)。除已确定的 Windows 范围外，其余最低版本仍为提案；所有目标尚未完成实际运行验证，不改变七个 Gitea 服务端版本必须支持的要求。
+Windows 最低支持已确定为 Windows 10 22H2 amd64，Windows 11 25H2 作为较新系统的验收基线；Windows 10 必须覆盖自带 PowerShell 5.1 和 Windows Terminal，不强制用户升级系统或安装 PowerShell 7。Git 2.43 已在 P3 确定为集成功能基线，2.43.7 隔离样本通过 core／helper 验证；macOS 仍建议 15，Windows 11 推荐 PowerShell 7.6 LTS 与 Windows Terminal；macOS 13／14 仍仅列可选兼容环境。依据、终端要求及验收矩阵见 [platform-support.md](platform-support.md)。除已确定的 Windows 范围和 Git 功能基线外，其余最低版本仍为提案；完整目标矩阵尚未完成实际运行验证，不改变七个 Gitea 服务端版本必须支持的要求。
 
 ### 8.3 安装与升级建议
 
@@ -204,7 +204,7 @@ Windows 最低支持已确定为 Windows 10 22H2 amd64，Windows 11 25H2 作为�
 - 每个版本提供版本号、各平台产物和 SHA-256 校验值，说明如何通过可信渠道获取并校验；校验值的可信分发方式待设计。
 - 每个正式支持的系统与架构都应有对应的构建及运行验证，至少覆盖版本查看、API、Git 集成和 MCP stdio 的基本流程；测试依赖的 Git 及 Gitea 环境需在验收方案中列明。
 - 评估 macOS 代码签名与公证、Windows 代码签名及团队设备策略。签名和公证所需的账号、证书和成本需确认；Windows 签名本身也不保证消除所有 SmartScreen 提示。参考 [Apple 公证说明](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)和 [Microsoft 代码签名说明](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options)。
-- 首版采用系统 Git，安装说明须列出 Git 依赖及检查方式；最低版本提案和凭证管理器验证方案见 [platform-support.md](platform-support.md)，纯 API 不因未安装 Git 而不可用。Git 版本下限不代表旧补丁版本仍获安全维护。
+- 首版采用系统 Git，安装说明须列出 Git 依赖及检查方式；最低版本和凭证管理器验证方案见 [platform-support.md](platform-support.md)，纯 API 不因未安装 Git 而不可用。Git 版本下限不代表旧补丁版本仍获安全维护。
 
 ### 8.5 待确认
 

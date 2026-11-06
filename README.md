@@ -1,6 +1,6 @@
 # sotea
 
-面向自部署 Gitea 的命令行工具，已完成 P1 基础实现与本机验证，业务能力按阶段开发。
+面向自部署 Gitea 的命令行工具，已实现上下文、认证、Issue 完整链路和通用 API；目标平台实测与后续能力按阶段推进。
 
 ## 开发环境
 
@@ -31,15 +31,20 @@ go build -o bin/sotea.exe ./cmd/sotea
 
 ## 当前范围
 
-目前提供帮助、版本、Cobra 补全及系统 Git 透传；已建立公共结果／错误、配置、Git helper、HTTP/TLS 和脱敏输出基础包。认证、专用业务命令、通用 API 命令、持续菜单、MCP 和终端样式尚未接入。程序生成的提示和界面统一使用英文，开发文档使用中文。
+目前提供帮助、版本、补全、系统 Git、五类 auth 命令、instance info、仓库开发上下文只读命令、全部 Issue 命令及任意方法的原始 API（含上传／下载）。缺少 Issue 编号时可在交互终端搜索并选择，写入默认预览确认。MCP 已有仅含 sotea_instance_info 的 stdio 原型；PR／Release、完整 MCP、持续菜单和终端样式按后续阶段接入。程序生成的提示和界面统一使用英文，开发文档使用中文。
 
 ~~~sh
 sotea version --json
 sotea --workdir /path/to/repository git -- status
-python3 scripts/check.py
+sotea auth login --credential-source git
+sotea repo view --json
+sotea issue list --state open --json
+sotea issue close 42
+sotea issue close
+python3 scripts/check.py --phase p3
 ~~~
 
-公共选项放在 git 之前，git 之后的参数原样交给 Git；Git 透传不支持业务 --json。当前无参数显示帮助，持续菜单按 P5 实施。基础能力、构建步骤与平台验收状态见 [p1-foundation.md](docs/p1-foundation.md)。
+公共选项放在 git 之前，git 之后的参数原样交给 Git；Git 透传不支持业务 --json。当前无参数显示帮助，持续菜单按 P5 实施。基础能力见 [p1-foundation.md](docs/p1-foundation.md)，认证、只读命令和 MCP 原型见 [p2-readonly.md](docs/p2-readonly.md)，Issue、API 文件与验证结果见 [p3-issue.md](docs/p3-issue.md)。Windows 实机与真实 MCP 客户端仍待验收。
 
 需求与技术方案分别见 [requirements.md](docs/requirements.md) 和 [technical-design.md](docs/technical-design.md)。
 

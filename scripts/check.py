@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """运行指定工具链的阶段检查并构建候选平台产物。
 
-构建记录位于受忽略的 dist/p1；交叉编译不等于目标系统运行验收。
+构建记录位于受忽略的 dist/<phase>；交叉编译不等于目标系统运行验收。
 """
 
 import argparse
@@ -14,7 +14,6 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "dist/p1"
 
 
 def run(args, environment):
@@ -30,9 +29,11 @@ def main():
 
     build-only 仅构建并在记录中标明检查未执行，不复用过时测试结论。
     """
-    parser = argparse.ArgumentParser(description="Check and build sotea P1 development artifacts.")
+    parser = argparse.ArgumentParser(description="Check and build sotea development artifacts.")
     parser.add_argument("--build-only", action="store_true", help="Build without rerunning tests or vet")
+    parser.add_argument("--phase", choices=("p1", "p2", "p3"), default="p1", help="Choose the development artifact directory")
     args = parser.parse_args()
+    output = ROOT / "dist" / args.phase
     environment = dict(os.environ, GOTOOLCHAIN="go1.27.3")
     version = subprocess.check_output(["go", "env", "GOVERSION"], cwd=ROOT, env=environment, text=True).strip()
     if version != "go1.27.3":
@@ -47,7 +48,7 @@ def main():
     dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())
     artifacts = []
     for system, arch in (("darwin", "arm64"), ("darwin", "amd64"), ("windows", "amd64")):
-        directory = OUTPUT / f"{system}-{arch}"
+        directory = output / f"{system}-{arch}"
         directory.mkdir(parents=True, exist_ok=True)
         target = directory / ("sotea.exe" if system == "windows" else "sotea")
         candidate_env = dict(environment, GOOS=system, GOARCH=arch, CGO_ENABLED="0")
@@ -60,9 +61,9 @@ def main():
     record = {"schema_version": 1, "time_utc": datetime.now(timezone.utc).isoformat(), "go": version,
               "commit": revision, "worktree_dirty": dirty, "checks": checks, "artifacts": artifacts,
               "source_sha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(sources)}}
-    OUTPUT.mkdir(parents=True, exist_ok=True)
-    (OUTPUT / "build-info.json").write_text(json.dumps(record, indent=2) + "\n")
-    print("Build metadata: dist/p1/build-info.json. Target-system runtime checks are still required.")
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "build-info.json").write_text(json.dumps(record, indent=2) + "\n")
+    print(f"Build metadata: dist/{args.phase}/build-info.json. Target-system runtime checks are still required.")
 
 
 if __name__ == "__main__":

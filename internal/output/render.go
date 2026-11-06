@@ -10,15 +10,36 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
 )
 
 // Redactor 保存当前身份需要遮蔽的具体密钥值。
-// 创建后不可变，可并发使用；不得将该对象本身序列化到业务结果。
+// 可并发登记与读取；不得将该对象本身序列化到业务结果。
 type Redactor struct {
+	mu      sync.RWMutex
 	secrets []string
+}
+
+// Add 登记本次进程已实际使用的密钥，供自有和 helper 来源的输出共同脱敏。
+// 登记和读取可并发；不输出密钥且不向普通配置持久化，重复值不增加记录。
+func (r *Redactor) Add(secret string) {
+	if r == nil || secret == "" {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, existing := range r.secrets {
+		if existing == secret {
+			return
+		}
+	}
+	r.secrets = append(r.secrets, secret)
+	sort.Slice(r.secrets, func(i, j int) bool {
+		return len(r.secrets[i]) > len(r.secrets[j])
+	})
 }
 
 // NewRedactor 注册需要额外保护的密钥，通用敏感字段会始终遮蔽。
@@ -40,6 +61,8 @@ func NewRedactor(secrets ...string) *Redactor {
 // 返回文本仍保留业务数据，终端控制字符由文本渲染路径另行清理。
 func (r *Redactor) Text(text string) string {
 	if r != nil {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
 		for _, secret := range r.secrets {
 			text = strings.ReplaceAll(text, secret, "[REDACTED]")
 		}

@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"unicode"
 
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
 )
@@ -35,6 +36,11 @@ type Instance struct {
 // Account 关联 API 身份与凭证来源，不保存密钥值。
 // Helper 字段保留原始 Git 查询上下文，占位用户名不等于 API 账号。
 type Account struct {
+	InstanceURL        string `json:"instance_url,omitempty"`
+	AuthType           string `json:"auth_type,omitempty"`
+	VerifiedAt         string `json:"verified_at,omitempty"`
+	Invalid            bool   `json:"invalid,omitempty"`
+	HelperDirectory    string `json:"helper_directory,omitempty"`
 	CredentialRef      string `json:"credential_ref,omitempty"`
 	Source             string `json:"source"`
 	CredentialUsername string `json:"credential_username,omitempty"`
@@ -46,10 +52,11 @@ type Account struct {
 // Binding 将本地路径及 remote 与实例关联。
 // Account 是显式绑定，实际身份仍须由认证服务验证。
 type Binding struct {
-	Path     string `json:"path"`
-	Remote   string `json:"remote,omitempty"`
-	Instance string `json:"instance"`
-	Account  string `json:"account,omitempty"`
+	Repository string `json:"repo,omitempty"`
+	Path       string `json:"path"`
+	Remote     string `json:"remote,omitempty"`
+	Instance   string `json:"instance"`
+	Account    string `json:"account,omitempty"`
 }
 
 // ResolvePath 按显式参数、SOTEA_CONFIG、系统用户配置目录的顺序选择位置。
@@ -84,7 +91,7 @@ func validate(config Config) error {
 	}
 	for name, instance := range config.Instances {
 		address, err := url.Parse(instance.URL)
-		if err != nil || name == "" || address.Hostname() == "" ||
+		if err != nil || !safeName(name) || address.Hostname() == "" ||
 			(address.Scheme != "https" && address.Scheme != "http") ||
 			address.User != nil || address.RawQuery != "" || address.Fragment != "" {
 			return app.Wrap(app.ConfigError, "Invalid instance name or base URL. Credentials are not allowed in instance URLs.", nil)
@@ -101,6 +108,11 @@ func validate(config Config) error {
 				return app.Wrap(app.ConfigError, "The active account is missing or logged out.", nil)
 			}
 		}
+		for account, record := range instance.Accounts {
+			if !safeName(account) || (record.Source != "token" && record.Source != "git" && record.Source != "environment") {
+				return app.Wrap(app.ConfigError, "Account names and credential sources must be valid.", nil)
+			}
+		}
 	}
 	if config.DefaultInstance != "" {
 		if _, ok := config.Instances[config.DefaultInstance]; !ok {
@@ -113,4 +125,18 @@ func validate(config Config) error {
 		}
 	}
 	return nil
+}
+
+// safeName 拒绝会改变终端行结构或隐藏实际目标的标识。
+// 保留正常 Unicode 名称，避免把配置或远端账号当作终端控制序列输出。
+func safeName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, character := range name {
+		if unicode.IsControl(character) {
+			return false
+		}
+	}
+	return true
 }

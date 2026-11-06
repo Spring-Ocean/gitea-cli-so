@@ -25,9 +25,12 @@ func Execute(ctx context.Context, args []string, input io.Reader, out, diagnosti
 	if _, _, findErr := command.Find(args); findErr != nil {
 		_ = command.ParseFlags(args)
 	}
-	err := command.ExecuteContext(ctx)
+	executed, err := command.ExecuteContextC(ctx)
 	if err == nil {
 		return 0
+	}
+	if printed, ok := err.(*printedResultError); ok {
+		return printed.code
 	}
 	if process, ok := err.(*git.ProcessError); ok {
 		return process.ExitCode()
@@ -37,6 +40,9 @@ func Execute(ctx context.Context, args []string, input io.Reader, out, diagnosti
 		err = app.Wrap(app.InvalidArgument, "Invalid command or arguments. Run sotea --help.", err)
 	}
 	machine, _ := command.PersistentFlags().GetBool("json")
+	if executed != nil && executed.Annotations["sotea.raw"] == "true" {
+		machine = false
+	}
 	result := app.NewResult(app.Context{}, nil, err)
 	render := renderer(command)
 	if machine {

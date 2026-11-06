@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "time_utc": "2026-11-06T13:59:17.164829+00:00",
+  "phase": "P2",
+  "status": "implemented_pending_windows_runtime",
+  "go": "go1.27.3",
+  "build": {
+    "schema_version": 1,
+    "time_utc": "2026-11-06T13:58:23.101762+00:00",
+    "go": "go1.27.3",
+    "commit": "db5ca654b09d779305d5697b64925307f0a5d09f",
+    "worktree_dirty": true,
+    "checks": {
+      "go_test": "not_run",
+      "go_vet": "not_run"
+    },
+    "artifacts": [
+      {
+        "os": "darwin",
+        "arch": "arm64",
+        "path": "dist/p2/darwin-arm64/sotea",
+        "sha256": "6e562eb6fdbac5027225e3ab5912c1c410040713568e0339e5dc3bde2bd19845",
+        "runtime_status": "not_tested"
+      },
+      {
+        "os": "darwin",
+        "arch": "amd64",
+        "path": "dist/p2/darwin-amd64/sotea",
+        "sha256": "78b9e239fda50d76f0149264f338dd736843548deff4e97646bff6c09c337114",
+        "runtime_status": "not_tested"
+      },
+      {
+        "os": "windows",
+        "arch": "amd64",
+        "path": "dist/p2/windows-amd64/sotea.exe",
+        "sha256": "3df2e242b5cebf55ed87fbd9d03b87eb153421992bccdad1fae1ee48d17950ce",
+        "runtime_status": "not_tested"
+      }
+    ],
+    "source_sha256": {
+      "cmd/sotea/main.go": "0ce025d491122b0dad1446ad1285c1c251f35b7bae352de448c1b900985a0496",
+      "go.mod": "a8617a9f9e8e0de7d2edadcda0f5e246e8f9371de0ddd32312335d8206a4ee6a",
+      "go.sum": "12cfdaf8d5c1d7760c5db8ce35288e312f9f339267f6c3d53e8b1050db9732a1",
+      "internal/app/error.go": "87c68544997ee42b5305cc275d5e71fbc4e185451f6c7738180b797608fb418f",
+      "internal/app/repository/read.go": "f18d0b24ed6206d45025813513a79cbdf2236119395c3703c98f76bad3453439",
+      "internal/app/result.go": "1ee06118b8dfc69b9fc299d981601b4f8edd825ea22076f04c74e81ab501f448",
+      "internal/app/result_test.go": "462528118df456a57f7cf362166fce27f8b54bce5382375c766521380f36f389",
+      "internal/auth/check.go": "58083d3052b6c2e4bd800ed6c705d3c6c06625d3edf1c3db539423b6657df4c1",
+      "internal/auth/service.go": "3d14366fc63d62bab6f0d0ee27c436b790a60d4179dd43cc7d64f7cd1dfddd86",
+      "internal/auth/service_test.go": "3ef20103b83450ea6bb33325e2a8e4c6a3e363be7ac1afc5443f0f79bd449ffe",
+      "internal/auth/vault.go": "a7ca5b5827698f79ce02d610917e3d0b7960cb83abf9b2b1e95c217646f24929",
+      "internal/auth/vault_test.go": "3e83e92a831022ea9d16fd47b78a4d6869296e1244e23ec1429ba424c4b98bf2",
+      "internal/cli/business.go": "3ac51ea5b0e4474c025a9bd9bd8e665e1c892916b46f4147434a814a17ccd83c",
+      "internal/cli/business_test.go": "1a53a4272a607f3a3b6912e1aec3ead31dc075349ad320afde8a0a722a75f328",
+      "internal/cli/execute.go": "b9cbdcfd75f3644ec41b34a839426f930037040e9c2aed5eb68c7c4b97cffdd3",
+      "internal/cli/execute_test.go": "c0f2965f7938c7bb0c7346466e4953e76ae1b05fd7626d49a1b26877fb542bcc",
+      "internal/cli/root.go": "5faf95c29665d67401f40ab5681a406c433e0511f5adec4430b01b632c09a8c5",
+      "internal/cli/root_test.go": "6e40a20287a2a39b71a6a5d47397abfd101510adf0abd5622c2bda49e534f577",
+      "internal/cli/runtime.go": "113881c26aa3e3787e6ef06a5596072ca13befd76d793e7ad6c960c5e1e63c5f",
+      "internal/cli/secret_posix.go": "7792aa8fdb9bcac0f2a1f537b450889c731e38e1266f6712cd640fb6ffcd5d36",
+      "internal/cli/secret_windows.go": "9f0706a25fde1f81670380f911687ecada3c7d4f9841b42d133f60c453cdfb89",
+      "internal/compat/version.go": "bfdb3c5592206e0c82dc045e681802edcfa085c4a54d638c712c9a9055841510",
+      "internal/compat/version_test.go": "677cb630d87114890731fdf0cdfcf0191e4bc3e8deedca74bd509cdfd69385ed",
+      "internal/config/replace_posix.go": "106c4fb81ed3e5f9fca8be7ee8ac0f3832a0f71a1e40e2de8c42e00a1f6d155d",
+      "internal/config/replace_windows.go": "6fb02366938e05cde1092042a015de2396b2c4d3eabeab801cb7d8dea5adf412",
+      "internal/config/store.go": "726ce977d59a09cede4597a2adb6c74a7524bdd4696f70ddd88124339fb4c0eb",
+      "internal/config/store_test.go": "24dcb0767bfb3ff1563fc1acdfeaed940a1f5adb8220719e190da39dbff251be",
+      "internal/config/types.go": "7ef61cee1967e205e17d8941b942bcbe889e976060f5e83f1e7342b98d174c33",
+      "internal/context/resolve.go": "e8cdf46e55ac5781ebf60c87bf0ea370bee123a35c444ade2838efba7758f8d5",
+      "internal/context/resolve_test.go": "ee56bff1778fc1509fda0c0313b3e1322dfb9b472fd3ebc4eeab212c72cde425",
+      "internal/git/credential.go": "aeb3e3e9b31a961cba240c05ce5d40cbde3f0d5fdfba7ff80e1f777ca42b36d0",
+      "internal/git/process_posix.go": "6f44b17529381a90118bc36077b41ed1f263ecd229a777d6688bbe1716b46920",
+      "internal/git/process_windows.go": "24df640387a7e85c4c43ae14f3b257d66851348c378896d32183ae55f2580a85",
+      "internal/git/repository.go": "30041877c3d3ebcdc28b9996645ce86a39e02b766947112854cf985516eb9ecf",
+      "internal/git/runner.go": "5e48c56ea78353eb78d3e91d170f13a9aed2cb8a4462085c88c04cdc965a7a44",
+      "internal/git/runner_test.go": "d12b75899983c2a2df145a8b36887eca423e1ddf8b2349c000b7ad9e5b9c66b9",
+      "internal/gitea/client.go": "9a9cd77550e84537f1b2e19e88ff8bd9b1df175f8ce7093467bd4a95fe06f3cf",
+      "internal/gitea/client_test.go": "26774a612e6834654c72f782817f292ceccbb732707c7a82fa07045118303259",
+      "internal/gitea/json.go": "a3b7d681e354ea23912d92faf867d1a0a3a5f384838d92b3bee801a8bb7c4e46",
+      "internal/mcp/server.go": "5e8a239fa378286b030a530c82b4937968d6208e51c79d02bf7b3f1bdd4e11ca",
+      "internal/mcp/server_test.go": "f7ac6b40603ba93de1a54d59cf2a15cd91c4e3f3de31e1382625164c0bc87205",
+      "internal/output/render.go": "6951500eeadb057a49aabbeb99dee2d06794c5aa010286859b7b4b372d159782",
+      "internal/output/render_test.go": "52800282175b2422a860f8f6e001dc93faace630efae8f914bf2764d6cdeebef"
+    }
+  },
+  "checks": [
+    {
+      "command": "go test -race ./...",
+      "status": "passed"
+    },
+    {
+      "command": "go vet ./...",
+      "status": "passed"
+    },
+    {
+      "command": "SOTEA_TEST_SYSTEM_VAULT=1 go test ./internal/auth -run TestSystemVaultRoundTrip -count=1",
+      "status": "passed",
+      "scope": "macOS synthetic entry only"
+    },
+    {
+      "command": "python3 scripts/check.py --phase p2 --build-only",
+      "status": "passed"
+    },
+    {
+      "command": "python3 scripts/p2-readonly-smoke.py --system-storage",
+      "status": "passed"
+    },
+    {
+      "command": "python3 scripts/p2-mcp-smoke.py",
+      "status": "passed"
+    },
+    {
+      "command": "python3 scripts/p2-terminal-smoke.py",
+      "status": "passed"
+    }
+  ],
+  "real_gitea": {
+    "schema_version": 1,
+    "time_utc": "2026-11-06T13:58:44.285549+00:00",
+    "binary_sha256": "6e562eb6fdbac5027225e3ab5912c1c410040713568e0339e5dc3bde2bd19845",
+    "system_storage_requested": true,
+    "versions": [
+      {
+        "version": "1.22.6",
+        "status": "passed",
+        "checks": [
+          "anonymous_detection_and_confirmed_helper_login",
+          "identity_and_exact_version_evidence",
+          "all_seven_repository_reads",
+          "multi_account_switch_and_helper_refresh",
+          "logout_suppression_across_processes",
+          "separate_shared_helper_rejection",
+          "environment_token_scope_logout_notice_and_no_git_directory",
+          "raw_authenticated_api",
+          "system_stored_token_login_refresh_and_removal"
+        ]
+      },
+      {
+        "version": "1.23.8",
+        "status": "passed",
+        "checks": [
+          "anonymous_detection_and_confirmed_helper_login",
+          "identity_and_exact_version_evidence",
+          "all_seven_repository_reads",
+          "multi_account_switch_and_helper_refresh",
+          "logout_suppression_across_processes",
+          "separate_shared_helper_rejection",
+          "environment_token_scope_logout_notice_and_no_git_directory",
+          "raw_authenticated_api",
+          "system_stored_token_login_refresh_and_removal"
+        ]
+      },
+      {
+        "version": "1.24.7",
+        "status": "passed",
+        "checks": [
+          "anonymous_detection_and_confirmed_helper_login",
+          "identity_and_exact_version_evidence",
+          "all_seven_repository_reads",
+          "multi_account_switch_and_helper_refresh",
+          "logout_suppression_across_processes",
+          "separate_shared_helper_rejection",
+          "environment_token_scope_logout_notice_and_no_git_directory",
+          "raw_authenticated_api",
+          "system_stored_token_login_refresh_and_removal"
+        ]
+      },
+      {
+        "version": "1.25.5",
+        "status": "passed",
+        "checks": [
+          "anonymous_detection_and_confirmed_helper_login",
+          "identity_and_exact_version_evidence",
+          "all_seven_repository_reads",
+          "multi_account_switch_and_helper_refresh",
+          "logout_suppression_across_processes",
+          "separate_shared_helper_rejection",
+          "environment_token_scope_logout_notice_and_no_git_directory",
+          "raw_authenticated_api",
+          "system_stored_token_login_refresh_and_removal"
+        ]
+      },
+      {
+        "version": "1.26.4",
+        "status": "passed",
+        "checks": [
+          "anonymous_detection_and_confirmed_helper_login",
+          "identity_and_exact_version_evidence",
+          "all_seven_repository_reads",
+          "multi_account_switch_and_helper_refresh",
+          "logout_suppression_across_processes",
+          "separate_shared_helper_rejection",
+          "environment_token_scope_logout_notice_and_no_git_directory",
+          "raw_authenticated_api",
+          "system_stored_token_login_refresh_and_removal"
+        ]
+      },
+      {
+        "version": "1.27.3",
+        "status": "passed",
+        "checks": [
+          "anonymous_detection_and_confirmed_helper_login",
+          "identity_and_exact_version_evidence",
+          "all_seven_repository_reads",
+          "multi_account_switch_and_helper_refresh",
+          "logout_suppression_across_processes",
+          "separate_shared_helper_rejection",
+          "environment_token_scope_logout_notice_and_no_git_directory",
+          "raw_authenticated_api",
+          "system_stored_token_login_refresh_and_removal"
+        ]
+      },
+      {
+        "version": "28.3.0",
+        "status": "passed",
+        "checks": [
+          "anonymous_detection_and_confirmed_helper_login",
+          "identity_and_exact_version_evidence",
+          "all_seven_repository_reads",
+          "multi_account_switch_and_helper_refresh",
+          "logout_suppression_across_processes",
+          "separate_shared_helper_rejection",
+          "environment_token_scope_logout_notice_and_no_git_directory",
+          "raw_authenticated_api",
+          "system_stored_token_login_refresh_and_removal"
+        ]
+      }
+    ]
+  },
+  "mcp_stdio": {
+    "schema_version": 1,
+    "time_utc": "2026-11-06T13:58:43.567836+00:00",
+    "binary_sha256": "6e562eb6fdbac5027225e3ab5912c1c410040713568e0339e5dc3bde2bd19845",
+    "protocols": [
+      {
+        "protocol": "2025-11-25",
+        "status": "passed",
+        "checks": [
+          "initialize",
+          "strict_tools_list",
+          "structured_diagnostic",
+          "cached_read",
+          "unknown_argument_rejected",
+          "business_error_keeps_server_alive",
+          "config_revision_invalidates_cache",
+          "eof_exit_without_stdout_noise"
+        ]
+      },
+      {
+        "protocol": "2025-06-18",
+        "status": "passed",
+        "checks": [
+          "initialize",
+          "strict_tools_list",
+          "structured_diagnostic",
+          "cached_read",
+          "unknown_argument_rejected",
+          "business_error_keeps_server_alive",
+          "config_revision_invalidates_cache",
+          "eof_exit_without_stdout_noise"
+        ]
+      }
+    ]
+  },
+  "terminal_pty": {
+    "schema_version": 1,
+    "time_utc": "2026-11-06T13:58:42.908701+00:00",
+    "status": "passed",
+    "binary_sha256": "6e562eb6fdbac5027225e3ab5912c1c410040713568e0339e5dc3bde2bd19845",
+    "checks": [
+      "confirmation_sigint",
+      "hidden_token_ctrl_c"
+    ]
+  },
+  "task_status": {
+    "P2-01": "passed_in_local_scope",
+    "P2-02": "passed_in_local_scope",
+    "P2-03": "passed_in_local_scope",
+    "P2-04": "implemented_pending_windows",
+    "P2-05": "passed_in_local_scope",
+    "P2-06": "passed_in_local_scope",
+    "P2-07": "passed_in_local_scope",
+    "P2-08": "passed_in_local_scope",
+    "P2-09": "passed_in_local_scope",
+    "P2-10": "passed_in_local_scope",
+    "P2-11": "passed_in_local_scope",
+    "P2-12": "passed_in_local_scope",
+    "P2-13": "passed_in_local_scope",
+    "P2-14": "passed_in_local_scope",
+    "P2-15": "implemented_pending_windows"
+  },
+  "platforms": {
+    "macos_arm64": "passed_local_27.0",
+    "macos_amd64": "cross_build_only",
+    "windows_10_22h2_amd64": "not_tested",
+    "windows_11_amd64": "not_tested",
+    "minimum_macos_git": "not_tested"
+  },
+  "limitations": [
+    "Seven-version result covers P2 authentication and repository reads only",
+    "MCP prototype exposes only sotea_instance_info; actual Harness clients not tested",
+    "Windows credentials, console and runtime remain pending actual hardware",
+    "Synchronous OS credential unlock prompts depend on platform behavior"
+  ],
+  "environment_handoff": "Seven isolated P0 services retained running for the user-authorized P3 work; no data reset"
+}

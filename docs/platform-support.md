@@ -2,7 +2,7 @@
 
 > 调研日期：2026-11-06
 >
-> 状态：Windows 10 向下支持范围已确认，其余最低版本仍为提案；尚未完成目标环境运行测试
+> 状态：Windows 10 范围、Git 2.43 功能基线已确定；macOS 最低版本及目标系统验收仍待完成
 >
 > 对应：[requirements.md](requirements.md) 第 8 章、[technical-design.md](technical-design.md) 第 11–12 章
 
@@ -14,7 +14,7 @@ Windows 已确认向下正式支持 Windows 10，最低基线采用 Windows 10 2
 | --- | --- | --- | --- |
 | macOS | macOS 15 Sequoia | 已验证且仍获更新的系统版本 | arm64、amd64 分别验证并发布；较新的 macOS 版本需另记实测结果。 |
 | Windows | 已确定：Windows 10 22H2 amd64，同时覆盖 Windows 11 | Windows 11 25H2 作为较新系统的验收基线 | Windows 10 与 Windows 11 均为正式验收目标，使用同一 amd64 产物；ARM64 待有设备／CI 验证后承诺。 |
-| Git | Git 2.43，含对应厂商修补版本 | 仍获上游或系统厂商维护的较新稳定版 | 这是集成功能的测试下限，不是要求安装 2.43.0，也不代表整个 2.43 分支仍获维护。 |
+| Git | 已确定：Git 2.43，含对应厂商修补版本 | 仍获上游或系统厂商维护的较新稳定版 | P3 用官方 2.43.7 隔离样本验证 core／helper；Windows 发行组合另待实测，不要求安装 2.43.0。 |
 | Windows shell | Windows PowerShell 5.1 | Windows 11 上推荐 PowerShell 7.6 LTS | 两个系统均验证 5.1，Windows 11 另测 7.6；sotea 是独立 exe，不以安装 PowerShell 7 为前提。 |
 | Windows 终端宿主 | 兼容目标系统的 Windows Terminal 稳定版 | Windows Terminal；Windows 11 可搭配 PowerShell 7.6 LTS | 两个系统分别记录宿主版本，另测传统控制台的纯文本降级；不因 shell 版本推断 ANSI 能力。 |
 | macOS 终端宿主 | 目标系统自带 Terminal；兼容目标系统的 iTerm2 稳定版 | 用户已有 Terminal 或 iTerm2 | 不设缺乏依据的终端小版本下限，记录实际测试版本。 |
@@ -52,11 +52,11 @@ Windows 11 Enterprise／Education 的维护周期不同。若团队仍使用处�
 
 ## 3. Git 下限与凭证管理
 
-现有 TDD 需要系统 Git 执行仓库发现、remote／分支查询、worktree 支持、credential fill／approve／reject 和命令透传。这些需求本身不能推出“必须安装当前最新 Git”，也没有足够依据把 2.43 宣称为唯一技术下限。建议选择 2.43，是为了给首版固定一个可重复验证的版本边界，同时限制对更旧版本的回归范围。
+现有 TDD 需要系统 Git 执行仓库发现、remote／分支查询、worktree 支持、credential fill／approve／reject 和命令透传。P3 将 2.43 固定为首版集成功能的支持基线，以限定回归范围；这不是相关命令的唯一技术下限。官方 Git 2.43.7 源码的临时隔离构建已验证仓库／worktree、helper 和 CLI；该样本关闭 curl／expat／gettext／tcltk／OpenSSL，不是供用户安装的完整 HTTP／SSH Git 分发包，也不替代 Windows Git for Windows／GCM 组合的验收。
 
 实现时应按该下限选择 Git 参数和输出格式，不未经检测就使用较新版本才增加的选项；对厂商版本字符串保留原值，再解析数字版本。遇到 Apple Git 等厂商发行版时，数字版本用于功能判断，安全维护情况依据厂商补丁记录，不能仅由上游版本号推断。若团队预装 Apple Git 低于 2.43，应先采集版本并实际验证，再决定扩展下限或在安装说明中引导安装较新 Git。
 
-Git 缺失或低于提案基线时：纯 API、显式 token 登录和不依赖本地仓库的 MCP 工具仍可用；依赖本地 Git 的能力给出安装／升级提示。显式 sotea git 透传仍可交给现有 Git 执行并保留其输出和退出码，但不把未经验证的旧版本标记为正式兼容。
+Git 缺失或低于该基线时：纯 API、显式 token 登录和不依赖本地仓库的 MCP 工具仍可用；依赖本地 Git 的能力给出安装／升级提示。显式 sotea git 透传仍可交给现有 Git 执行并保留其输出和退出码，但不把未经验证的旧版本标记为正式兼容。
 
 Git helper 由 Git 自身按上下文调用。macOS 可以使用用户既有 osxkeychain，Windows 可以使用 Git for Windows 配套的 Git Credential Manager；不直接扫描用户的系统密钥，也不因使用某个 helper 而跳过 Gitea API 身份验证。GCM 是可选组件，其版本和操作系统要求应按实际安装组合验证，不能拿 GCM 的要求代替所有 Git 认证方式的要求。
 
@@ -88,4 +88,15 @@ Windows Terminal 自身的安装技术下限是 Windows 10 2004／build 19041；
 
 最低版本样本只在隔离测试仓库和模拟 helper 中验证，不使用开发者真实凭证。正式发布记录 OS 版本与构建号、CPU 架构、Git 原始版本、helper、shell、终端和关键依赖版本，以及通过／失败／未测试状态。
 
-实现前核对凭证库和终端库的最低要求，保留已确定的 Windows 10 支持范围；发布前按团队实际设备确认其余提案并完成测试。本轮仅更新文档与验收要求，未安装旧系统、未运行该矩阵，也未修改当前程序的运行限制。
+实现前核对凭证库和终端库的最低要求，保留已确定的 Windows 10 支持范围；发布前按团队实际设备确认其余提案并完成测试。初次调研仅更新文档与验收要求，未安装旧系统或运行该矩阵；后续 P2／P3 的实际实现和验证结果见下文，不能外推到矩阵中未具备的环境。
+
+
+## P2 实施记录
+
+P2 使用 go-keyring v0.2.8（Windows 分支依赖 wincred v1.2.3）、官方 MCP Go SDK v1.8.0、x/term v0.47.0 与 x/sys v0.49.0。Go 1.27.3 下的 darwin/arm64、darwin/amd64、windows/amd64 均完成开发构建；macOS 27 arm64 的 Keychain、认证只读链路、stdio 与 PTY 取消通过。
+
+Windows 10 22H2／Windows 11、Intel macOS、候选最低 macOS 仍未实测；Git 的 P3 基线结果另见下文。上述依赖的系统 API 与构建检查不能替代对应运行记录。系统存储库的同步 OS 解锁交互受系统控制，不能宣称所有提示可强行取消。完整记录见 [p2-readonly.md](p2-readonly.md)，正式最低平台承诺与原验收矩阵保持待验证。
+
+## P3 实施记录
+
+Git 2.43 功能基线已定案，2.43.7 隔离样本和本机 Apple Git 的验证各自归档。交互选择器锁定 Bubble Tea v1.3.10、go-runewidth v0.0.16，Lip Gloss v1.1.0 目前为传递依赖。上述三个模块的根 LICENSE 均为 MIT；正式发布仍须保留各依赖许可和版权声明，完整输出样式按 P5 实施。POSIX PTY 的真实键盘／取消／恢复通过，不能替代 GUI Terminal／iTerm2 或 Windows 宿主实测。详见 [P3 记录](p3-issue.md)。

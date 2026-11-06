@@ -10,20 +10,31 @@ import (
 
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/git"
+	"github.com/Spring-Ocean/gitea-cli-so/internal/output"
 )
 
 // options 只保存当前已实现基础能力需要的选项。
-// 账号、实例和业务选项随 P2 以后功能接入，避免空参数表面可用。
+// 已接入上下文、认证与只读链路，后续写入和样式选项随实际能力加入。
 type options struct {
-	json          bool
-	workdir       string
-	noInteractive bool
+	redactor        *output.Redactor
+	instance        string
+	account         string
+	repo            string
+	remote          string
+	configPath      string
+	caFile          string
+	proxy           string
+	yes             bool
+	confirmInstance bool
+	json            bool
+	workdir         string
+	noInteractive   bool
 }
 
 // NewRootCommand 创建相互独立的命令树，不访问配置或凭证。
 // version 注入构建版本；调用者可设置 I/O 与 context 后执行，未实现入口不会被注册。
 func NewRootCommand(version string) *cobra.Command {
-	opts := &options{}
+	opts := &options{redactor: output.NewRedactor(os.Getenv("SOTEA_TOKEN"))}
 	root := &cobra.Command{
 		Use:              "sotea",
 		Short:            "CLI for self-hosted Gitea",
@@ -43,6 +54,15 @@ func NewRootCommand(version string) *cobra.Command {
 	root.PersistentFlags().BoolVar(&opts.json, "json", false, "Print a structured JSON result")
 	root.PersistentFlags().StringVar(&opts.workdir, "workdir", "", "Run in the specified working directory")
 	root.PersistentFlags().BoolVar(&opts.noInteractive, "no-interactive", false, "Disable sotea prompts; Git retains its own interaction rules")
+	root.PersistentFlags().StringVar(&opts.instance, "instance", "", "Select a registered instance or HTTP(S) root URL")
+	root.PersistentFlags().StringVar(&opts.account, "account", "", "Select an explicit API account")
+	root.PersistentFlags().StringVar(&opts.repo, "repo", "", "Select owner/repo explicitly")
+	root.PersistentFlags().StringVar(&opts.remote, "remote", "", "Select a Git fetch remote")
+	root.PersistentFlags().StringVar(&opts.configPath, "config", "", "Use a specific non-sensitive JSON configuration file")
+	root.PersistentFlags().StringVar(&opts.caFile, "ca-file", "", "Add a private CA PEM file to system trust")
+	root.PersistentFlags().StringVar(&opts.proxy, "proxy", "", "Use an HTTP(S) proxy URL, or direct")
+	root.PersistentFlags().BoolVar(&opts.yes, "yes", false, "Skip the ordinary operation confirmation")
+	root.PersistentFlags().BoolVar(&opts.confirmInstance, "confirm-instance", false, "Explicitly trust the displayed root URL after anonymous instance detection")
 	root.SetFlagErrorFunc(func(command *cobra.Command, err error) error {
 		return app.Wrap(app.InvalidArgument, "Invalid command options. Run the command with --help.", err)
 	})
@@ -93,5 +113,6 @@ func NewRootCommand(version string) *cobra.Command {
 				command.InOrStdin(), command.OutOrStdout(), command.ErrOrStderr())
 		},
 	})
+	addBusinessCommands(root, opts, version)
 	return root
 }
