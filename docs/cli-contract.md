@@ -1,12 +1,14 @@
 # sotea 首版运行与认证契约
 
-> 状态：按用户确认的首版范围制定，尚未实现
+> 状态：首版目标契约已确认；P1 基础能力部分实现，后续业务与交互待实施
 >
 > 更新日期：2026-11-06
 >
 > 依据：[requirements.md](requirements.md)、[technical-design.md](technical-design.md)
 
 ## 1. 三种入口
+
+程序界面统一使用英文，包括帮助、参数说明、交互菜单、输入提示、确认、表格标题、错误与诊断，以及 MCP 用户可见摘要。远端标题、正文、评论等用户内容和 Git／通用 API 原始输出保留原文；中文项目文档不受此规则影响。后续新增入口同样遵守该约定。
 
 | 入口 | 首版行为 |
 | --- | --- |
@@ -87,6 +89,8 @@ Git fetch / push 等继续使用系统 Git 已配置的凭证辅助程序和 SSH
 首版非敏感配置使用 JSON，默认位置为 os.UserConfigDir()/sotea/config.json，可用 --config 或 SOTEA_CONFIG 覆盖。密钥由 macOS Keychain / Windows Credential Manager 适配器保管，具体依赖实现时选择；配置使用格式版本、原子写和并发修改检查。默认不从仓库中自动加载可执行配置。
 
 实例记录包括名称、完整 URL、CA 路径、SSH 映射、账号引用及非敏感退出抑制标记；本地仓库绑定记录规范化路径、remote 和实例，跨设备路径不自动迁移。按配置项采用显式参数 > 对应环境变量 > 已保存配置 > 默认值；上下文及凭证项的特殊顺序以上表和第 4 节为准。
+
+P1 配置层已实现显式路径 > SOTEA_CONFIG > 默认路径的解析接口；--config 尚未注册到当前无配置业务的命令树，将随 P2 接入。文件上限 1 MiB，未知字段／格式版本、损坏 JSON 均报错。保存使用排他 .lock、完整内容摘要比较、同目录临时文件写入同步和替换，成功递增 revision；遗留锁不自动删除。锁仅协调遵守协议的 sotea 写入，外部编辑器在比较后的修改仍可能竞争；Snapshot.RevisionKey 供长驻进程重新读取后检测内容变化。
 
 ### 4.3 Git 凭证匹配与复用范围
 
@@ -206,3 +210,11 @@ Release create 默认 draft=true、prerelease=false；--publish 明确直接发�
 - [Git credential](https://git-scm.com/docs/git-credential)：fill、approve 和 reject 的接口及影响范围。
 - [Git credential contexts](https://git-scm.com/docs/gitcredentials)：协议、主机及 useHttpPath 的匹配规则。
 - [Gitea API authentication](https://docs.gitea.com/development/api-usage/)：API 认证与 token。文档站描述不代表七个精确版本全部具备相同认证扩展，必须按隔离实例测试确认。
+
+## 9. 当前 P1 可用入口
+
+当前注册 version、help／补全及 git；基础公共参数为 --json、--workdir、--no-interactive，其余参数按对应能力逐步接入。version --json 使用第 6 节 envelope；帮助保持普通帮助文本。无参数暂时显示帮助，P5 按本契约接入菜单。
+
+Git 示例：sotea --workdir /path/to/repo git -- status。sotea 公共选项放在 git 之前；git 后全部参数原样交给系统 Git，可选的第一个 -- 仅作为分隔符移除。前置 --json 与 Git 透传不兼容；后置 --json 则属于 Git 参数，按 Git 自身规则处理。--no-interactive 只禁止 sotea 提示，Git 透传仍遵守 Git 自己的交互配置。
+
+基础适配器与实际验证见 [P1 记录](p1-foundation.md)，当前状态不缩减前文规定的首版范围。

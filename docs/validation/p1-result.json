@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "time_utc": "2026-11-06T10:18:14.436846+00:00",
+  "phase": "P1",
+  "status": "implemented_pending_platform_validation",
+  "task_status": {
+    "P1-01": "passed_local_foundation",
+    "P1-02": "passed_local_foundation",
+    "P1-03": "passed_local_foundation",
+    "P1-04": "passed_local_foundation",
+    "P1-05": "passed_local_foundation",
+    "P1-06": "passed_local_foundation",
+    "P1-07": "passed_local_foundation",
+    "P1-08": "passed_local_foundation",
+    "P1-09": "passed_local_foundation",
+    "P1-10": "passed_local_foundation",
+    "P1-11": "passed_local_foundation",
+    "P1-12": "implemented_pending_windows_runtime"
+  },
+  "commit": "274b6fbabb76916fd58dbf494b89fdf198e59b9d",
+  "worktree_dirty": true,
+  "go": "go1.27.3",
+  "checks": [
+    {
+      "command": "go test -race ./...",
+      "status": "passed",
+      "scope": "all Go packages on local macOS arm64"
+    },
+    {
+      "command": "go vet ./...",
+      "status": "passed",
+      "scope": "all Go packages"
+    },
+    {
+      "command": "python3 scripts/check.py --build-only",
+      "status": "passed",
+      "scope": "three development cross-builds; test and vet run separately"
+    },
+    {
+      "command": "native darwin/arm64 executable smoke",
+      "status": "passed",
+      "details": {
+        "status": "passed",
+        "system": "macOS-27.0-arm64-arm-64bit-Mach-O",
+        "machine": "arm64",
+        "os_build": "26A428",
+        "git": "git version 2.50.1 (Apple Git-155)",
+        "binary_sha256": "22db6174005ecbea334f90c118a1592e271e145f0c27e583f67ac4a5785c38db",
+        "checks": [
+          "version_text",
+          "version_json",
+          "help_and_no_arguments",
+          "json_argument_error",
+          "unicode_space_path_and_git",
+          "git_raw_error_exit_128",
+          "git_json_rejected"
+        ]
+      }
+    },
+    {
+      "command": "function comment, multiline declaration and production string inspection",
+      "status": "passed"
+    }
+  ],
+  "build": {
+    "schema_version": 1,
+    "time_utc": "2026-11-06T10:14:29.799792+00:00",
+    "go": "go1.27.3",
+    "commit": "274b6fbabb76916fd58dbf494b89fdf198e59b9d",
+    "worktree_dirty": true,
+    "checks": {
+      "go_test": "not_run",
+      "go_vet": "not_run"
+    },
+    "artifacts": [
+      {
+        "os": "darwin",
+        "arch": "arm64",
+        "path": "dist/p1/darwin-arm64/sotea",
+        "sha256": "22db6174005ecbea334f90c118a1592e271e145f0c27e583f67ac4a5785c38db",
+        "runtime_status": "passed_local_smoke"
+      },
+      {
+        "os": "darwin",
+        "arch": "amd64",
+        "path": "dist/p1/darwin-amd64/sotea",
+        "sha256": "ac7c5431c705c7524b27a3c58064eeebd95a937a41c9b435d10a77dbc2e70e42",
+        "runtime_status": "not_tested"
+      },
+      {
+        "os": "windows",
+        "arch": "amd64",
+        "path": "dist/p1/windows-amd64/sotea.exe",
+        "sha256": "738e2875d74c522c44057ab6897cec758e962bc524145b7b7318db1813bfa330",
+        "runtime_status": "not_tested"
+      }
+    ],
+    "source_sha256": {
+      "cmd/sotea/main.go": "0ce025d491122b0dad1446ad1285c1c251f35b7bae352de448c1b900985a0496",
+      "go.mod": "a7ebde9288221a84e9d77ab4f3b12c600678298201c1fe58de4039045e51e50d",
+      "go.sum": "8443a862d2e8b05ac34298d963911aa22b0e54978185655078ae2e83346cfa51",
+      "internal/app/error.go": "d4e2f9be41e38601d44354c0b7efe403ca8bf0a5975a4ffa4186780a654a30d8",
+      "internal/app/result.go": "1ee06118b8dfc69b9fc299d981601b4f8edd825ea22076f04c74e81ab501f448",
+      "internal/app/result_test.go": "462528118df456a57f7cf362166fce27f8b54bce5382375c766521380f36f389",
+      "internal/cli/execute.go": "3648c9116cd7657e86445acf0dfb2c5865fdec130b76208bed1abf62debc6bd3",
+      "internal/cli/execute_test.go": "c0f2965f7938c7bb0c7346466e4953e76ae1b05fd7626d49a1b26877fb542bcc",
+      "internal/cli/root.go": "83140c240d5e2c2b71c4fb8f8ccaa2e4f81292c3e9e4f42052ad14039a42f8af",
+      "internal/cli/root_test.go": "6e40a20287a2a39b71a6a5d47397abfd101510adf0abd5622c2bda49e534f577",
+      "internal/config/replace_posix.go": "106c4fb81ed3e5f9fca8be7ee8ac0f3832a0f71a1e40e2de8c42e00a1f6d155d",
+      "internal/config/replace_windows.go": "6fb02366938e05cde1092042a015de2396b2c4d3eabeab801cb7d8dea5adf412",
+      "internal/config/store.go": "726ce977d59a09cede4597a2adb6c74a7524bdd4696f70ddd88124339fb4c0eb",
+      "internal/config/store_test.go": "24dcb0767bfb3ff1563fc1acdfeaed940a1f5adb8220719e190da39dbff251be",
+      "internal/config/types.go": "839dd54410c9d2e8d8d0dee2e44591f0e12eab7dd0cfb1db75cdd51c3f9b797a",
+      "internal/git/credential.go": "aeb3e3e9b31a961cba240c05ce5d40cbde3f0d5fdfba7ff80e1f777ca42b36d0",
+      "internal/git/process_posix.go": "6f44b17529381a90118bc36077b41ed1f263ecd229a777d6688bbe1716b46920",
+      "internal/git/process_windows.go": "24df640387a7e85c4c43ae14f3b257d66851348c378896d32183ae55f2580a85",
+      "internal/git/repository.go": "30041877c3d3ebcdc28b9996645ce86a39e02b766947112854cf985516eb9ecf",
+      "internal/git/runner.go": "5e48c56ea78353eb78d3e91d170f13a9aed2cb8a4462085c88c04cdc965a7a44",
+      "internal/git/runner_test.go": "d12b75899983c2a2df145a8b36887eca423e1ddf8b2349c000b7ad9e5b9c66b9",
+      "internal/gitea/client.go": "9a9cd77550e84537f1b2e19e88ff8bd9b1df175f8ce7093467bd4a95fe06f3cf",
+      "internal/gitea/client_test.go": "26774a612e6834654c72f782817f292ceccbb732707c7a82fa07045118303259",
+      "internal/output/render.go": "8cbaaea70b99fb6f3a8213ced0d82a390d372aa80476d2f27171d2f8e361a68a",
+      "internal/output/render_test.go": "52800282175b2422a860f8f6e001dc93faace630efae8f914bf2764d6cdeebef"
+    }
+  },
+  "platform_validation": [
+    {
+      "platform": "macOS 27.0 arm64",
+      "status": "passed",
+      "scope": "automated packages and executable smoke; no interactive-terminal acceptance"
+    },
+    {
+      "platform": "macOS amd64",
+      "status": "not_tested",
+      "reason": "No native host; cross-build only"
+    },
+    {
+      "platform": "Windows 10 22H2 amd64",
+      "status": "not_tested",
+      "reason": "No Windows device or verified runner in this session",
+      "next": "scripts/windows-p1-smoke.ps1 and package/platform checks"
+    },
+    {
+      "platform": "Windows 11 amd64",
+      "status": "not_tested",
+      "reason": "No Windows device or verified runner in this session",
+      "next": "scripts/windows-p1-smoke.ps1 and package/platform checks"
+    },
+    {
+      "platform": "candidate minimum macOS 15 / Git 2.43",
+      "status": "not_tested",
+      "reason": "Only macOS 27.0 / Git 2.50.1 available; DEC remains open"
+    }
+  ],
+  "external_validation": {
+    "seven_gitea_versions": "not_run_in_P1",
+    "real_credential_helpers": "not_tested",
+    "mcp_clients": "not_implemented"
+  },
+  "limitations": [
+    "P1-12 and phase exit pending actual Windows 10 startup/path/process validation",
+    "Config locking coordinates sotea writers; external editors can race after comparison",
+    "Windows detached descendants not guaranteed by taskkill fallback strategy",
+    "Authentication lifecycle, context resolution, compatibility and business services start in P2",
+    "Default no-argument menu, full styling and MCP remain in later phases"
+  ]
+}

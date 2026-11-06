@@ -1,6 +1,6 @@
 # sotea
 
-面向自部署 Gitea 的命令行工具，目前处于工程初始化阶段。
+面向自部署 Gitea 的命令行工具，已完成 P1 基础实现与本机验证，业务能力按阶段开发。
 
 ## 开发环境
 
@@ -31,11 +31,19 @@ go build -o bin/sotea.exe ./cmd/sotea
 
 ## 当前范围
 
-目前提供命令入口、帮助和版本命令。Git、Gitea API、MCP、认证和终端样式尚未实现；Cobra 用于命令解析，Lip Gloss 会在需要终端渲染时引入。目录按功能逐步创建，避免提交空占位目录。
+目前提供帮助、版本、Cobra 补全及系统 Git 透传；已建立公共结果／错误、配置、Git helper、HTTP/TLS 和脱敏输出基础包。认证、专用业务命令、通用 API 命令、持续菜单、MCP 和终端样式尚未接入。程序生成的提示和界面统一使用英文，开发文档使用中文。
+
+~~~sh
+sotea version --json
+sotea --workdir /path/to/repository git -- status
+python3 scripts/check.py
+~~~
+
+公共选项放在 git 之前，git 之后的参数原样交给 Git；Git 透传不支持业务 --json。当前无参数显示帮助，持续菜单按 P5 实施。基础能力、构建步骤与平台验收状态见 [p1-foundation.md](docs/p1-foundation.md)。
 
 需求与技术方案分别见 [requirements.md](docs/requirements.md) 和 [technical-design.md](docs/technical-design.md)。
 
-首版运行、认证、多选和确认规则见 [cli-contract.md](docs/cli-contract.md)，MCP 工具方案见 [mcp-design.md](docs/mcp-design.md)。这些是实施契约，尚未实现；当前支持的命令仍以实际 --help 为准。
+首版运行、认证、多选和确认规则见 [cli-contract.md](docs/cli-contract.md)，MCP 工具方案见 [mcp-design.md](docs/mcp-design.md)。契约中的后续能力仍待实施；当前可用命令以实际 --help 为准。
 
 模块划分、阶段任务、依赖关系和验收标准见 [development-plan.md](docs/development-plan.md)。
 
