@@ -1,0 +1,81 @@
+name: sotea-p0
+
+x-gitea: &gitea
+  restart: "no"
+  mem_limit: 512m
+  environment: &environment
+    GITEA__database__DB_TYPE: sqlite3
+    GITEA__security__INSTALL_LOCK: "true"
+    GITEA__service__DISABLE_REGISTRATION: "true"
+    GITEA__server__DISABLE_SSH: "true"
+    GITEA__server__OFFLINE_MODE: "true"
+    GITEA__actions__ENABLED: "false"
+    GITEA__repository__DEFAULT_BRANCH: main
+    GITEA__log__MODE: console
+
+services:
+  gitea-1-22-6:
+    <<: *gitea
+    image: docker.gitea.com/gitea:1.22.6@sha256:538658de667c5d098a274f2f63aa6ec891d88f670cdd5282cf27221ba747dda4
+    environment:
+      <<: *environment
+      GITEA__server__ROOT_URL: http://127.0.0.1:32206/
+    ports: ["127.0.0.1:32206:3000"]
+    volumes: ["gitea-1-22-6:/data"]
+  gitea-1-23-8:
+    <<: *gitea
+    image: docker.gitea.com/gitea:1.23.8@sha256:8b5a98abe52dacbead16eb4179c9abb7c217d523df3a75901343906ae7853357
+    environment:
+      <<: *environment
+      GITEA__server__ROOT_URL: http://127.0.0.1:32308/
+    ports: ["127.0.0.1:32308:3000"]
+    volumes: ["gitea-1-23-8:/data"]
+  gitea-1-24-7:
+    <<: *gitea
+    image: docker.gitea.com/gitea:1.24.7@sha256:918955f16b1e91732af6c449bb2db3a34271748dbed1ccfbae48f8a2fb5480b8
+    environment:
+      <<: *environment
+      GITEA__server__ROOT_URL: http://127.0.0.1:32407/
+    ports: ["127.0.0.1:32407:3000"]
+    volumes: ["gitea-1-24-7:/data"]
+  gitea-1-25-5:
+    <<: *gitea
+    image: docker.gitea.com/gitea:1.25.5@sha256:f846d26a4fc389c5806a580a765e00bfdd1fd181e6f2060da98ea2669d914472
+    environment:
+      <<: *environment
+      GITEA__server__ROOT_URL: http://127.0.0.1:32505/
+    ports: ["127.0.0.1:32505:3000"]
+    volumes: ["gitea-1-25-5:/data"]
+  gitea-1-26-4:
+    <<: *gitea
+    image: docker.gitea.com/gitea:1.26.4@sha256:8e25c717b8f748445e15ec46e0390f577cb628101184cb0a150d1dae126c1f39
+    environment:
+      <<: *environment
+      GITEA__server__ROOT_URL: http://127.0.0.1:32604/
+    ports: ["127.0.0.1:32604:3000"]
+    volumes: ["gitea-1-26-4:/data"]
+  gitea-1-27-3:
+    <<: *gitea
+    image: docker.gitea.com/gitea:1.27.3@sha256:87a67ee09d3ae0d1df5fda5dcda3e2a1f9236a45b0a59025d6e00e46adc43bef
+    environment:
+      <<: *environment
+      GITEA__server__ROOT_URL: http://127.0.0.1:32703/
+    ports: ["127.0.0.1:32703:3000"]
+    volumes: ["gitea-1-27-3:/data"]
+  gitea-28-3-0:
+    <<: *gitea
+    image: docker.gitea.com/gitea:28.3.0@sha256:8967bf9deaf3c5c4adae13519436dc1b20c646ac83fe37ae810c933a1045227d
+    environment:
+      <<: *environment
+      GITEA__server__ROOT_URL: http://127.0.0.1:32830/
+    ports: ["127.0.0.1:32830:3000"]
+    volumes: ["gitea-28-3-0:/data"]
+
+volumes:
+  gitea-1-22-6:
+  gitea-1-23-8:
+  gitea-1-24-7:
+  gitea-1-25-5:
+  gitea-1-26-4:
+  gitea-1-27-3:
+  gitea-28-3-0:

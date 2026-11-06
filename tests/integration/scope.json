@@ -1,0 +1,353 @@
+{
+  "schema_version": 1,
+  "status": "planned_not_implemented",
+  "groups": [
+    {
+      "module": "MOD-02",
+      "requirements": [
+        "REQ-04"
+      ],
+      "cli": [
+        "git"
+      ],
+      "tools": [
+        "sotea_git_context"
+      ],
+      "actions": [],
+      "tasks": [
+        "P1-05",
+        "P1-06",
+        "P1-07",
+        "P1-11",
+        "P5-09",
+        "P6-12"
+      ]
+    },
+    {
+      "module": "MOD-04",
+      "requirements": [
+        "REQ-03"
+      ],
+      "cli": [
+        "auth login",
+        "auth status",
+        "auth switch",
+        "auth refresh",
+        "auth logout"
+      ],
+      "tools": [
+        "sotea_auth_status"
+      ],
+      "actions": [],
+      "tasks": [
+        "P2-04",
+        "P2-05",
+        "P2-06",
+        "P2-07",
+        "P2-08",
+        "P2-09"
+      ]
+    },
+    {
+      "module": "MOD-06",
+      "requirements": [
+        "REQ-02",
+        "REQ-12"
+      ],
+      "cli": [
+        "instance info"
+      ],
+      "tools": [
+        "sotea_instance_info"
+      ],
+      "actions": [],
+      "tasks": [
+        "P2-10",
+        "P2-11"
+      ]
+    },
+    {
+      "module": "MOD-07",
+      "requirements": [
+        "REQ-02",
+        "REQ-06",
+        "REQ-07",
+        "REQ-08"
+      ],
+      "cli": [
+        "repo view",
+        "branch list",
+        "tag list",
+        "commit list",
+        "commit status",
+        "label list",
+        "milestone list"
+      ],
+      "tools": [
+        "sotea_repo_view",
+        "sotea_branch_list",
+        "sotea_tag_list",
+        "sotea_commit_list",
+        "sotea_commit_status",
+        "sotea_label_list",
+        "sotea_milestone_list"
+      ],
+      "actions": [],
+      "tasks": [
+        "P2-12",
+        "P6-04"
+      ]
+    },
+    {
+      "module": "MOD-08",
+      "requirements": [
+        "REQ-06",
+        "REQ-10"
+      ],
+      "cli": [
+        "issue list",
+        "issue view",
+        "issue create",
+        "issue edit",
+        "issue close",
+        "issue reopen",
+        "issue comment list",
+        "issue comment add",
+        "issue assignee add",
+        "issue assignee remove",
+        "issue label list",
+        "issue label add",
+        "issue label remove"
+      ],
+      "tools": [
+        "sotea_issue_list",
+        "sotea_issue_view",
+        "sotea_issue_label_list",
+        "sotea_issue_comment_list"
+      ],
+      "actions": [
+        "issue.create",
+        "issue.edit",
+        "issue.close",
+        "issue.reopen",
+        "issue.comment.add",
+        "issue.assignee.add",
+        "issue.assignee.remove",
+        "issue.label.add",
+        "issue.label.remove"
+      ],
+      "tasks": [
+        "P3-01",
+        "P3-02",
+        "P3-03",
+        "P3-04",
+        "P3-05",
+        "P3-06",
+        "P3-07",
+        "P3-08",
+        "P3-09",
+        "P3-10",
+        "P3-13",
+        "P6-05"
+      ]
+    },
+    {
+      "module": "MOD-09",
+      "requirements": [
+        "REQ-07",
+        "REQ-10"
+      ],
+      "cli": [
+        "pr list",
+        "pr view",
+        "pr create",
+        "pr edit",
+        "pr close",
+        "pr reopen",
+        "pr files",
+        "pr commits",
+        "pr comment list",
+        "pr comment add",
+        "pr review list",
+        "pr review create",
+        "pr reviewer add",
+        "pr merge"
+      ],
+      "tools": [
+        "sotea_pr_list",
+        "sotea_pr_view",
+        "sotea_pr_files",
+        "sotea_pr_commits",
+        "sotea_pr_comment_list",
+        "sotea_pr_review_list"
+      ],
+      "actions": [
+        "pr.create",
+        "pr.edit",
+        "pr.close",
+        "pr.reopen",
+        "pr.comment.add",
+        "pr.review.create",
+        "pr.reviewer.add",
+        "pr.merge"
+      ],
+      "tasks": [
+        "P4-01",
+        "P4-02",
+        "P4-03",
+        "P4-04",
+        "P4-05",
+        "P4-06",
+        "P4-07",
+        "P4-08",
+        "P4-09",
+        "P4-16",
+        "P4-17",
+        "P4-18",
+        "P6-05"
+      ]
+    },
+    {
+      "module": "MOD-10",
+      "requirements": [
+        "REQ-08"
+      ],
+      "cli": [
+        "release list",
+        "release view",
+        "release create",
+        "release edit",
+        "release asset list",
+        "release asset upload"
+      ],
+      "tools": [
+        "sotea_release_list",
+        "sotea_release_view",
+        "sotea_release_asset_list"
+      ],
+      "actions": [
+        "release.create",
+        "release.edit",
+        "release.asset.upload"
+      ],
+      "tasks": [
+        "P4-10",
+        "P4-11",
+        "P4-12",
+        "P4-13",
+        "P4-14",
+        "P4-15",
+        "P4-16",
+        "P4-17",
+        "P4-18",
+        "P6-05"
+      ]
+    },
+    {
+      "module": "MOD-05",
+      "requirements": [
+        "REQ-05"
+      ],
+      "cli": [
+        "api"
+      ],
+      "tools": [
+        "sotea_api_read"
+      ],
+      "actions": [
+        "api.request"
+      ],
+      "tasks": [
+        "P1-08",
+        "P1-09",
+        "P2-13",
+        "P3-11",
+        "P3-12",
+        "P6-13"
+      ]
+    },
+    {
+      "module": "MOD-13",
+      "requirements": [
+        "REQ-01",
+        "REQ-09",
+        "REQ-13"
+      ],
+      "cli": [
+        "sotea (no arguments)"
+      ],
+      "tools": [],
+      "actions": [],
+      "tasks": [
+        "P5-01",
+        "P5-02",
+        "P5-03",
+        "P5-04",
+        "P5-05",
+        "P5-06",
+        "P5-07",
+        "P5-08",
+        "P5-09",
+        "P5-10",
+        "P5-11",
+        "P5-12",
+        "P5-13"
+      ]
+    },
+    {
+      "module": "MOD-14",
+      "requirements": [
+        "REQ-11"
+      ],
+      "cli": [
+        "mcp serve"
+      ],
+      "tools": [
+        "sotea_context_get",
+        "sotea_write_prepare",
+        "sotea_write_commit",
+        "sotea_write_status"
+      ],
+      "actions": [],
+      "tasks": [
+        "P6-01",
+        "P6-02",
+        "P6-03",
+        "P6-04",
+        "P6-05",
+        "P6-06",
+        "P6-07",
+        "P6-08",
+        "P6-09",
+        "P6-10",
+        "P6-11",
+        "P6-12",
+        "P6-13",
+        "P6-14",
+        "P6-15",
+        "P6-16"
+      ]
+    }
+  ],
+  "cross_cutting_requirements": {
+    "REQ-12": [
+      "MOD-06",
+      "MOD-15"
+    ],
+    "REQ-13": [
+      "MOD-11",
+      "MOD-12",
+      "MOD-13",
+      "MOD-14"
+    ],
+    "REQ-14": [
+      "MOD-15",
+      "MOD-16"
+    ]
+  },
+  "existing_baseline": [
+    "version",
+    "--help",
+    "Cobra completion"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "task_id": "P0-06",
+  "requirement_ids": ["REQ-12"],
+  "baseline_commit": "填写实际提交",
+  "worktree_changes": "填写本次脚本或配置的路径和摘要",
+  "time_utc": "填写实际执行时间",
+  "environment": {
+    "host_os": "填写 OS 与构建号",
+    "host_arch": "填写实际架构",
+    "gitea_version": "填写精确版本",
+    "gitea_image_digest": "填写实际摘要",
+    "git": "填写实际 Git 原始版本",
+    "shell_terminal": "填写实际组合，未验证则标明"
+  },
+  "credential_source": "合成测试账号；不填写凭证值",
+  "command": "填写不包含密钥的命令",
+  "expected": "填写具体通过标准",
+  "actual": "执行后填写",
+  "status": "not_tested",
+  "limitations": ["P0 基础设施验证不代表 sotea 业务兼容验收"],
+  "next_action": "填写失败或未验证项的下一步"
+}

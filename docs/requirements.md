@@ -78,8 +78,10 @@ Actions 工作流管理、组织和站点管理、Webhook 等暂不列为首版�
 1. 默认从启动目录发现 Git 仓库和 remote，识别并验证目标 Gitea；HTTPS 推断和 SSH 到 HTTP 地址映射按 CLI 契约处理，不以域名或版本字符串作为唯一平台证据。
 2. 登录体验复用 Git credential helper、系统凭证管理器及 Git 已有交互习惯，提供 auth login、status、switch、refresh、logout。通过 GET /api/v1/user 验证实际远端身份；Git user.name、user.email 不是远端认证账号。
 3. HTTPS Git 凭证经 API 验证可复用；SSH 认证不自动产生 API token，无法复用时安全输入独立 token。API 认证与 Git 传输凭证分别管理，不强制二者使用同一身份。
+   HTTPS 凭证按协议、主机及显式端口、已知用户名和 Git 配置决定的路径上下文查询；默认不按仓库路径区分 helper 凭证，尊重 credential.useHttpPath，不自动扩大到父域或其他子域。sotea 自有 API 引用则绑定完整实例根地址与已验证账号，同实例多个仓库可以复用；详见 CLI 契约第 4.3 节。
 4. 保存多个实例和账号，按显式参数、环境变量及保存的活动账号选择。切换 sotea 账号不修改 Git commit 作者或 SSH 设置。
-5. 401 标记失效并提供重新登录路径；403 表示权限不足，不自动删除凭证。刷新凭证须验证后替换，退出默认只移除 sotea 自有记录；清理共享 Git helper 凭证须明确选择和确认。
+5. 401 标记失效并提供重新登录路径；403 表示权限不足，不自动删除凭证。刷新凭证须验证后替换，退出默认移除 sotea 自有认证记录并持久化退出抑制标记，防止下次通过 Git helper 隐式重登；清理共享 Git helper 凭证须明确选择和确认。环境 token 由外部管理，必须提示移除变量及重启相关 MCP 进程，不能声称已经删除。
+6. 显式要求账号 A，API 验证为 B 时默认报 AUTH_IDENTITY_MISMATCH，不继续业务请求或写入；交互式登录必须明确同意切换身份，--yes、脚本和 MCP 不自动替换。helper 的占位用户名不等于 API 账号。
 6. 非敏感配置为带版本的 JSON，密钥使用系统安全存储或运行时环境注入，不静默保存明文；支持私有 CA，默认验证 TLS。优先级、路径和并发更新规则见 [cli-contract.md](cli-contract.md)。
 
 ### 3.4 MCP
@@ -120,7 +122,7 @@ Actions 工作流管理、组织和站点管理、Webhook 等暂不列为首版�
 | --- | --- | --- | --- |
 | REQ-01 | 首次启动 | 仓库根、子目录、worktree、非仓库目录均有明确入口；未登录可完成配置后继续，且不自动写入或 clone。 | CLI 契约第 1–4 节；目标终端实测。 |
 | REQ-02 | 平台与上下文 | 私有 CA、HTTPS、SSH 映射、多 remote、fork 和多个实例按固定优先级解析；未知平台和歧义不猜测、不泄露凭证。 | CLI 契约第 2–3 节；HTTP 与 Git 测试。 |
-| REQ-03 | 认证全流程 | 登录、身份检查、账号切换、凭证替换和退出均可完成；401 / 403 / 网络失败区分；共享 Git 凭证不会被默认删除。 | CLI 契约第 4 节；七版本认证回归。 |
+| REQ-03 | 认证全流程 | 登录、身份检查、账号切换、凭证替换和退出均可完成；协议／端口／子域／账号及 useHttpPath 匹配正确；401 / 403 / 网络失败区分；共享 Git 凭证不会被默认删除；退出后跨进程不隐式重登，环境来源如实提示，显式账号不一致时业务请求数为零。 | CLI 契约第 4 节；隔离 helper 和七版本认证回归。 |
 | REQ-04 | Git | 系统 Git 透传本地／远端操作，保留输出和退出状态；纯 API 在无 Git 时可用。 | TDD 第 5 节；真实 Git 环境。 |
 | REQ-05 | 通用 API | 读取、确认写入、重复查询参数、原始响应、文件传输和未知版本可调用；不按业务模型重写请求。 | TDD 第 6 节；HTTP 契约和实例测试。 |
 | REQ-06 | Issue | 全部已列命令、里程碑设置／清空及标签负责人增删通过；明确编号不能误改 PR。 | TDD 第 4.2 节、CLI 契约；七版本回归。 |
@@ -145,7 +147,7 @@ Actions 工作流管理、组织和站点管理、Webhook 等暂不列为首版�
 | 多版本 | 七个指定版本必须支持全部首版共同功能；适配不完整或未实测不得宣布正式支持。 |
 | 工程 | Go 1.27.3，Cobra，系统 Git，macOS / Windows 预编译；样式及交互库按设计实施时锁定。 |
 
-待落实的是交付环境与实现证据：正式 CPU 架构和最低系统／Git 版本、Windows 宿主及设备、发布地址、签名条件、依赖版本、七个隔离实例及客户端版本。第 8 章的建议需在发布前形成明确支持矩阵；不能将这些待验证项写成已完成。
+P0 已完成七版本隔离实例、最小数据重建及现有环境盘点，证据见 [p0-readiness.md](p0-readiness.md)。待落实的是后续交付与验收条件：正式 CPU 架构和最低系统／Git 版本、Windows 宿主及设备、发布地址、签名条件、依赖版本，以及全部客户端／业务的真实验收。第 8 章的建议需在发布前形成明确支持矩阵；不能将 P0 基础设施通过写成这些项目已经通过。
 
 ## 7. 实现语言
 
@@ -170,7 +172,8 @@ Go 官方发布历史中列有 [Go 1.27.3](https://go.dev/doc/devel/release)。�
 
 - 为 **macOS 和 Windows** 提供预编译程序，用户运行 CLI 无需安装 Go。
 - CLI 和本地 stdio MCP 服务随同一套发布产物提供，用户不需要另外安装 MCP 服务。
-- 具体架构、操作系统最低版本、安装方式和更新方式尚未敲定，下面是首版建议。
+- Windows 正式支持向下覆盖 Windows 10，首版最低基线为 Windows 10 22H2 amd64，同时支持 Windows 11；两者均须完成真实运行验收。
+- macOS 最低版本、其他架构、安装方式和更新方式仍按下面的首版建议评估。
 
 ### 8.2 支持平台建议
 
@@ -178,11 +181,13 @@ Go 官方发布历史中列有 [Go 1.27.3](https://go.dev/doc/devel/release)。�
 | --- | --- | --- | --- |
 | macOS | arm64（Apple Silicon） | 支持 | 在相应环境验证 CLI、Git 集成和 MCP 启动。 |
 | macOS | amd64（Intel） | 支持 | 在相应环境验证同样的关键流程。 |
-| Windows | amd64（Intel / AMD 64 位） | 支持 | 在相应环境验证同样的关键流程，并检查路径和终端行为。 |
+| Windows | amd64（Intel / AMD 64 位） | 已确定覆盖 Windows 10 22H2 和 Windows 11 | 两个系统分别验证关键流程、路径、终端及凭证行为，不能相互代替。 |
 | Windows | arm64 | 建议支持原生构建；团队没有设备或 CI 环境时，先确认测试条件再承诺正式支持。 | 在 Windows ARM 环境验证关键流程；仅成功交叉编译不足以证明运行兼容。 |
 | Linux、Windows 32 位及其他平台 | 待讨论 | 首版暂不承诺；如团队 CI 或服务器需要 Linux，应调整范围。 | 确定范围后补充构建和运行测试。 |
 
 各平台的最低操作系统版本应在核对团队设备、Go 1.27.3 的支持范围以及第三方依赖后确定，不能仅以构建成功作为兼容承诺。Go 的 [平台支持策略](https://go.dev/wiki/PortingPolicy)和[目标平台列表](https://go.dev/doc/install/source#environment)可作为评估依据。
+
+Windows 最低支持已确定为 Windows 10 22H2 amd64，Windows 11 25H2 作为较新系统的验收基线；Windows 10 必须覆盖自带 PowerShell 5.1 和 Windows Terminal，不强制用户升级系统或安装 PowerShell 7。其余调研建议为 macOS 15、Git 2.43，Windows 11 推荐 PowerShell 7.6 LTS 与 Windows Terminal；macOS 13／14 仍仅列可选兼容环境。依据、终端要求及验收矩阵见 [platform-support.md](platform-support.md)。除已确定的 Windows 范围外，其余最低版本仍为提案；所有目标尚未完成实际运行验证，不改变七个 Gitea 服务端版本必须支持的要求。
 
 ### 8.3 安装与升级建议
 
@@ -197,7 +202,7 @@ Go 官方发布历史中列有 [Go 1.27.3](https://go.dev/doc/devel/release)。�
 - 每个版本提供版本号、各平台产物和 SHA-256 校验值，说明如何通过可信渠道获取并校验；校验值的可信分发方式待设计。
 - 每个正式支持的系统与架构都应有对应的构建及运行验证，至少覆盖版本查看、API、Git 集成和 MCP stdio 的基本流程；测试依赖的 Git 及 Gitea 环境需在验收方案中列明。
 - 评估 macOS 代码签名与公证、Windows 代码签名及团队设备策略。签名和公证所需的账号、证书和成本需确认；Windows 签名本身也不保证消除所有 SmartScreen 提示。参考 [Apple 公证说明](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)和 [Microsoft 代码签名说明](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options)。
-- 首版采用系统 Git，安装说明须列出 Git 依赖及检查方式；具体 Git 版本、凭证管理器兼容范围须通过目标环境测试确定。
+- 首版采用系统 Git，安装说明须列出 Git 依赖及检查方式；最低版本提案和凭证管理器验证方案见 [platform-support.md](platform-support.md)，纯 API 不因未安装 Git 而不可用。Git 版本下限不代表旧补丁版本仍获安全维护。
 
 ### 8.5 待确认
 
@@ -210,3 +215,5 @@ Go 官方发布历史中列有 [Go 1.27.3](https://go.dev/doc/devel/release)。�
 ## 9. 后续步骤
 
 按已确认范围推进认证、上下文、API 与兼容层、业务命令、CLI 交互和 MCP 实现；逐项执行第 5 章验收矩阵。发布前落实第 8 章平台和分发条件，完成七版本及实际客户端测试，统一记录结果，不以静态文档分析代替运行验证。
+
+具体模块、阶段任务、依赖及需求追踪见 [development-plan.md](development-plan.md)。

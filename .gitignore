@@ -16,3 +16,12 @@
 .DS_Store
 .idea/
 .vscode/
+
+# Local agent instructions
+/AGENTS.md
+
+# Isolated integration credentials, CA keys and runtime evidence
+/tests/integration/.state/
+/tests/integration/__pycache__/
+/scripts/__pycache__/
+/testdata/p0/__pycache__/

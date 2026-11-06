@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "verified_date": "2026-11-06",
+  "images": [
+    {
+      "version": "1.22.6",
+      "image": "docker.gitea.com/gitea:1.22.6@sha256:538658de667c5d098a274f2f63aa6ec891d88f670cdd5282cf27221ba747dda4",
+      "observed_architecture": "arm64",
+      "reported_version": "1.22.6"
+    },
+    {
+      "version": "1.23.8",
+      "image": "docker.gitea.com/gitea:1.23.8@sha256:8b5a98abe52dacbead16eb4179c9abb7c217d523df3a75901343906ae7853357",
+      "observed_architecture": "arm64",
+      "reported_version": "1.23.8"
+    },
+    {
+      "version": "1.24.7",
+      "image": "docker.gitea.com/gitea:1.24.7@sha256:918955f16b1e91732af6c449bb2db3a34271748dbed1ccfbae48f8a2fb5480b8",
+      "observed_architecture": "arm64",
+      "reported_version": "1.24.7"
+    },
+    {
+      "version": "1.25.5",
+      "image": "docker.gitea.com/gitea:1.25.5@sha256:f846d26a4fc389c5806a580a765e00bfdd1fd181e6f2060da98ea2669d914472",
+      "observed_architecture": "arm64",
+      "reported_version": "1.25.5"
+    },
+    {
+      "version": "1.26.4",
+      "image": "docker.gitea.com/gitea:1.26.4@sha256:8e25c717b8f748445e15ec46e0390f577cb628101184cb0a150d1dae126c1f39",
+      "observed_architecture": "arm64",
+      "reported_version": "1.26.4"
+    },
+    {
+      "version": "1.27.3",
+      "image": "docker.gitea.com/gitea:1.27.3@sha256:87a67ee09d3ae0d1df5fda5dcda3e2a1f9236a45b0a59025d6e00e46adc43bef",
+      "observed_architecture": "arm64",
+      "reported_version": "1.27.3"
+    },
+    {
+      "version": "28.3.0",
+      "image": "docker.gitea.com/gitea:28.3.0@sha256:8967bf9deaf3c5c4adae13519436dc1b20c646ac83fe37ae810c933a1045227d",
+      "observed_architecture": "arm64",
+      "reported_version": "28.3.0"
+    }
+  ]
+}

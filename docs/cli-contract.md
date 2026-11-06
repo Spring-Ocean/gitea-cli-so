@@ -52,14 +52,16 @@ HTTPS remote 可提出去掉仓库路径后的服务根地址候选；保留非�
 Git fetch / push 等继续使用系统 Git 已配置的凭证辅助程序和 SSH；sotea 的 API 身份复用流程采用以下顺序：
 
 1. 显式配置的环境凭证优先，其次当前实例和账号的系统安全存储凭证，再尝试当前 HTTPS remote 对应的 Git credential helper。环境变量 SOTEA_TOKEN 只绑定本次选定实例，不遍历其他实例使用；可用 SOTEA_TOKEN_INSTANCE 明确限制实例，设置后不匹配必须拒绝。
-2. 查询 Git 凭证时调用 git credential fill，传递匹配的协议、主机、用户名和路径，尊重 Git 的匹配配置。捕获辅助程序输出并脱敏，设置超时；自动检测、脚本和 MCP 禁止提示，只有显式登录的交互流程允许用户解锁或输入。
+2. 查询 Git 凭证时调用 git credential fill，使用所选 HTTPS remote 的凭证上下文：协议、主机及显式端口、已知凭证用户名和原始仓库路径，路径是否参与辅助程序匹配由 Git 的 credential.useHttpPath 等配置决定，详见第 4.3 节。捕获辅助程序输出并脱敏，设置超时；自动检测、脚本和 MCP 禁止提示，只有显式登录的交互流程允许用户解锁或输入。
 3. Git 辅助程序返回的 password 不一定是 API token。仅使用来源明确的认证类型验证：普通 HTTPS 用户名密码走 BasicAuth，用户选择 token 类型时走 token 认证；不在无证据情况下遍历尝试认证方案。GET /user 成功后才关联账号，403 不作为密码失效证据。
 4. 没有可复用凭证、API 验证失败或使用 SSH remote 时，交互提示使用独立 API token，可从实例的个人设置创建后安全输入。Git 的 SSH 登录不自动产生可调用 API 的 token；当前文档提及的 SSH HTTP 签名属于独立认证机制，首版不将其作为七版本通用自动登录路径。
 5. API token 验证后写入系统安全存储，配置只记录引用。需要让 HTTPS Git 同时使用时，在用户明确选择后再调用 credential approve；不得默认覆盖已有 Git 凭证。若已有辅助程序不能持久化，明确反馈；API 不静默退回明文文件。Git 未安装不阻止显式 token 登录。
 
 首版不自动创建或撤销服务端 token；不实现浏览器 OAuth 兑换或自动续期。账号密码、2FA 或组织策略不能按支持路径完成时，引导使用具备对应权限的 token，不假设所有 Git 凭证均能用于 API。
 
-辅助程序返回的凭证若验证为另一个账号，显示实际身份，不能以用户输入的别名掩盖。已登记实例的日常操作可自动尝试该账号保存的凭证；首次未知服务地址必须先确认来源，再读取和发送对应凭证。匿名用户可读取公开资源，所有业务写入及账号管理必须有经验证的身份；不为公开只读操作强制登录。
+显式要求 API 账号 A，但 GET /api/v1/user 验证为账号 B 时，默认返回 AUTH_IDENTITY_MISMATCH，禁止继续业务请求、覆盖 A 的绑定或以 B 执行写入。交互式登录可以展示实际身份，只有用户明确同意切换到 B 后才按 B 保存并继续；非交互、--yes 和 MCP 均不能自动接受身份替换。比较对象是已解析的 API 账号和远端实际身份，不能把 helper 的 oauth2 等占位用户名直接当成 API 账号。
+
+已登记实例的日常操作可自动尝试该账号保存的凭证，但必须遵守下述退出抑制规则；首次未知服务地址必须先确认来源，再读取和发送对应凭证。匿名用户可读取公开资源，所有业务写入及账号管理必须有经验证的身份；不为公开只读操作强制登录。
 
 ### 4.1 认证命令
 
@@ -69,10 +71,14 @@ Git fetch / push 等继续使用系统 Git 已配置的凭证辅助程序和 SSH
 | auth status | 显示凭证来源及上次验证状态；--check 调用 GET /user，失败返回对应错误，不展示密钥。 |
 | auth switch | 选择已保存账号并验证，成功后设为实例活动账号，令该进程相关缓存失效。 |
 | auth refresh | 重新获取当前来源凭证或安全输入替换 token，验证成功再替换旧引用；失败保留旧记录并标明其验证状态。 |
-| auth logout | 确认后删除 sotea 的该账号引用和独立存储密钥，清理绑定及缓存；不撤销服务端 token，也不默认删除其他工具共享的 Git 凭证。 |
+| auth logout | 确认后删除 sotea 的该账号引用和独立存储密钥，清理活动身份、认证绑定及缓存，保存非敏感退出抑制标记；不撤销服务端 token，也不默认删除其他工具共享的 Git 凭证。 |
 | auth logout --forget-git | 显示实际 Git helper 匹配范围并额外确认后调用 reject；可能影响 Git 和其他工具，无法保证只影响当前仓库。 |
 
 非交互登录必须显式指定必要信息，密钥用环境或 --with-token 提供；MCP 不使用 stdin 登录。账号切换和退出只改变 sotea 的活动身份；Git 的 commit 作者、SSH key 及 Git 自身账号选择仍由 Git 配置决定，界面须说明当前凭证来源。
+
+退出抑制标记按完整实例根地址和已验证账号持久化，跨进程生效。退出后不得在下次业务操作中通过 Git helper 自动重新登录该账号；退出导致实例没有活动账号时，也不能借助“唯一账号”或未限定账号的 helper 查询绕回原身份。公开读取可以匿名继续，需要认证时返回 AUTH_REQUIRED 并引导显式 auth login；不自动切换到另一个保存的账号。显式登录并验证成功后才清除对应标记；用户仍可通过 auth switch 明确选择另一个已保存账号。退出不删除仓库到实例的非敏感映射。
+
+环境凭证属于外部管理，sotea 无法修改父 shell 或 MCP 启动配置中的 SOTEA_TOKEN。退出结果必须分别说明本地清理结果和仍存在的环境来源；auth status 也应展示该来源，不能声称 token 已删除、撤销或所有入口均已退出。显式提供的环境凭证仍遵循来源优先级，退出抑制只阻止隐式 helper 重登；要停止环境认证，用户需移除 shell／客户端配置中的变量，并重启继承旧环境的 MCP 子进程。输出不得包含变量值。退出、切换或替换凭证后，长驻进程需使相关缓存和未提交写入计划失效。
 
 受控 API 身份请求返回 401 时标记失效，交互可重新登录，非交互返回 AUTH_REQUIRED；403 返回 PERMISSION_DENIED，不自动删除或 reject。网络、TLS、404 等不能直接判定 token 失效。长驻菜单和 MCP 每次调用检查配置版本，凭证或账号发生变化则失效相关计划和缓存。
 
@@ -80,7 +86,40 @@ Git fetch / push 等继续使用系统 Git 已配置的凭证辅助程序和 SSH
 
 首版非敏感配置使用 JSON，默认位置为 os.UserConfigDir()/sotea/config.json，可用 --config 或 SOTEA_CONFIG 覆盖。密钥由 macOS Keychain / Windows Credential Manager 适配器保管，具体依赖实现时选择；配置使用格式版本、原子写和并发修改检查。默认不从仓库中自动加载可执行配置。
 
-实例记录包括名称、完整 URL、CA 路径、SSH 映射及账号引用；本地仓库绑定记录规范化路径、remote 和实例，跨设备路径不自动迁移。按配置项采用显式参数 > 对应环境变量 > 已保存配置 > 默认值；上下文及凭证项的特殊顺序以上表和第 4 节为准。
+实例记录包括名称、完整 URL、CA 路径、SSH 映射、账号引用及非敏感退出抑制标记；本地仓库绑定记录规范化路径、remote 和实例，跨设备路径不自动迁移。按配置项采用显式参数 > 对应环境变量 > 已保存配置 > 默认值；上下文及凭证项的特殊顺序以上表和第 4 节为准。
+
+### 4.3 Git 凭证匹配与复用范围
+
+HTTPS Git 凭证由 URL 上下文描述，通常以协议和主机为基础，并受用户名、端口、路径配置及辅助程序行为影响，不能简单写成“只绑定域名”或“每个仓库单独登录”。sotea 不自行扫描系统密钥库或直接运行某个 helper；在目标仓库的 Git 配置上下文中调用 git credential fill，让 Git 应用用户既有的配置、辅助程序链和匹配逻辑。
+
+| 上下文字段 | 首版规则 |
+| --- | --- |
+| protocol | 使用 remote 的协议，例如 https；不将 http 与 https 自动视为同一来源。 |
+| host | 保留主机及 URL 中显式指定的端口，例如 git.example.com:8443。默认不扩展为父域、其他子域或其他端口；用户显式配置的 Git URL 匹配规则仍由 Git 应用。 |
+| username | 已知凭证用户名时传入，让 Git/helper 选择相应凭证；缺少时允许 helper 返回用户名，但须验证实际 API 身份。不能用 commit 作者信息代替。 |
+| path | 传入所选 Git remote 的仓库路径。HTTP(S) 默认不按路径区分外部 helper 中的凭证；credential.useHttpPath=true 时才让路径参与该匹配。sotea 不强行设置此选项。 |
+
+以下为示例，不代表已部署服务：
+
+| remote 对比 | 预期处理 |
+| --- | --- |
+| https://git.example.com/team/a.git 与 https://git.example.com/team/b.git | 默认可由 Git 返回相同凭证；useHttpPath=true 时按各自仓库路径查询，不能自行去掉路径再扩大搜索。 |
+| https://git.example.com 与 https://other.example.com | 默认主机不同，不因同属 example.com 自动复用；按用户已有的 Git 配置执行。 |
+| https://git.example.com:8443 与 https://git.example.com:9443 | 使用各自含端口的 host 查询，不删除端口合并凭证。 |
+| http://git.example.com 与 https://git.example.com | 使用各自协议上下文，不自动跨协议尝试。 |
+| 同一 host 的不同账号 | 需要明确账号与已验证的凭证用户名映射；不枚举并轮流尝试该主机所有密钥。 |
+
+需要区分三类绑定：本地仓库到 remote 的绑定用于确定操作对象；Git 凭证上下文用于向 helper 查询；sotea API 凭证引用按完整实例根地址（含代理子路径）和已验证 API 账号绑定。同一实例的多个仓库可以使用同一账号和凭证引用，不创建每仓库一份 token。不同实例根地址不因主机相同就自动共享 API 凭证。
+
+复用时保留原始 Git remote 的 credential 上下文，不用 /api/v1/user 或 API 请求路径替换仓库 path。先确认该 remote 和 API 根地址的映射；只有映射到已选实例且来源已确认时，才用 helper 返回的凭证验证该 API。无法映射或没有 Git remote 时，不猜测仓库路径读取 path 限定凭证，转用已保存 API 身份或显式登录。
+
+Git 辅助程序的 username 可能是认证用占位名称，与 GET /api/v1/user 返回的实际 login 不相同；分别保存 credential_username 与已验证 API 身份的映射，不改写共享 Git 记录以强行对齐。取得凭证后仍需验证身份和权限，Git clone / push 成功不等于具备对应 API scope。
+
+approve / reject 使用 Git 返回的有效上下文及实际匹配范围。useHttpPath=false 时，一个 erase 操作可能影响同主机其他仓库；退出提示必须展示此范围，不承诺“只清理当前仓库”。helper 来源默认保存引用和上下文，不复制为长期独立 token；若用户选择另存为 sotea 凭证，单独确认并说明之后两份记录的更新／删除独立。
+
+SSH remote 的 key、agent 和主机别名不按上述 HTTP 凭证模式读取；Git 继续处理 SSH，API 使用明确的 HTTP 实例映射和独立可验证凭证。所有查询都设置超时、捕获密钥输出，不在 CLI 日志、JSON 或 MCP 响应回传原始 fill 结果。
+
+验收补充：用隔离的模拟 helper 验证同主机多仓库、不同协议／端口／子域、多个账号、useHttpPath 开／关、仓库级 Git 配置、代理子路径、来源身份不一致及 reject 影响范围。另验证退出后重启仍不隐式重登、显式登录恢复、其他账号不会自动接替、环境来源提示、占位用户名与 API 身份区分、A/B 不一致时业务请求数为零，以及 MCP 计划失效。读取和测试不得访问或输出开发者实际凭证。依据见第 8 节的 Git 官方文档。
 
 ## 5. 目标多选规则
 
