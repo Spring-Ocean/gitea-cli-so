@@ -1,6 +1,6 @@
 # sotea
 
-面向自部署 Gitea 的命令行工具，已实现上下文、认证、Issue 完整链路和通用 API；目标平台实测与后续能力按阶段推进。
+面向自部署 Gitea 的命令行工具，已实现上下文、认证、Issue／PR／Release 完整链路和通用 API；目标平台实测与后续能力按阶段推进。
 
 ## 开发环境
 
@@ -31,9 +31,10 @@ go build -o bin/sotea.exe ./cmd/sotea
 
 ## 当前范围
 
-目前提供帮助、版本、补全、系统 Git、五类 auth 命令、instance info、仓库开发上下文只读命令、全部 Issue 命令及任意方法的原始 API（含上传／下载）。缺少 Issue 编号时可在交互终端搜索并选择，写入默认预览确认。MCP 已有仅含 sotea_instance_info 的 stdio 原型；PR／Release、完整 MCP、持续菜单和终端样式按后续阶段接入。程序生成的提示和界面统一使用英文，开发文档使用中文。
+目前提供帮助、版本、补全、系统 Git、五类 auth 命令、instance info、仓库开发上下文只读命令、全部 Issue／PR／Release 命令及任意方法的原始 API（含上传／下载）。缺少资源编号／标签时可在交互终端搜索并选择，写入默认预览确认。MCP 已有仅含 sotea_instance_info 的 stdio 原型；持续菜单、共享字段表单、表格和 --color 已接通；完整 MCP 按 P6 接入。首页通过 Gitea API 展示已验证用户资料；Browse account 可浏览账户仓库、组织和组织仓库，进入工作台后可逐层返回。业务详情统一使用可读字段和分组，正文支持安全 Markdown，菜单内的 JSON API 响应也可直接留屏查看。全局页面区分选项名称／说明与操作指引，底部显示当前位置；成功结果只保留资源标题，字段键值分层，分组使用背景标签；Account 使用输入框分步完成验证与明确保存。Release 仅对草稿显示高亮的 ◇ Draft。程序生成的提示和界面统一使用英文，开发文档使用中文。
 
 ~~~sh
+sotea
 sotea version --json
 sotea --workdir /path/to/repository git -- status
 sotea auth login --credential-source git
@@ -41,10 +42,13 @@ sotea repo view --json
 sotea issue list --state open --json
 sotea issue close 42
 sotea issue close
-python3 scripts/check.py --phase p3
+sotea pr list --json
+sotea pr merge 42
+sotea release create v1.0.0 --target main
+python3 scripts/check.py --phase p5
 ~~~
 
-公共选项放在 git 之前，git 之后的参数原样交给 Git；Git 透传不支持业务 --json。当前无参数显示帮助，持续菜单按 P5 实施。基础能力见 [p1-foundation.md](docs/p1-foundation.md)，认证、只读命令和 MCP 原型见 [p2-readonly.md](docs/p2-readonly.md)，Issue、API 文件与验证结果见 [p3-issue.md](docs/p3-issue.md)。Windows 实机与真实 MCP 客户端仍待验收。
+公共选项放在 git 之前，git 之后的参数原样交给 Git；Git 透传不支持业务 --json。三流均为终端时无参数进入持续菜单，启动探测当前仓库；↑↓ 移动、Enter 进入、Esc 返回，批量资源才用 Space。分组结果用 PgUp／PgDn 或 Tab／Shift+Tab 切组，长组才用 ↑↓、Home／End 组内滚动，左右键不切组；CI、重定向或 --no-interactive 时无参数显示帮助，--json 无子命令返回参数错误。基础能力见 [p1-foundation.md](docs/p1-foundation.md)，认证、只读命令和 MCP 原型见 [p2-readonly.md](docs/p2-readonly.md)，Issue、API 文件与验证结果见 [p3-issue.md](docs/p3-issue.md)，PR／Release 流程及版本结果见 [p4-workflows.md](docs/p4-workflows.md)。持续菜单、按键、字段与终端输出见 [p5-terminal-experience.md](docs/p5-terminal-experience.md)。Windows／GUI 宿主与真实 MCP 客户端仍待验收。
 
 需求与技术方案分别见 [requirements.md](docs/requirements.md) 和 [technical-design.md](docs/technical-design.md)。
 

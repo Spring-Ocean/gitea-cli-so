@@ -75,7 +75,7 @@ func (r *runtime) collectionSelection(command *cobra.Command, service issue.Serv
 	if remove {
 		title = "Select current issue values to remove · #" + strconv.FormatInt(index, 10)
 	}
-	selected, err := tui.Select(command.Context(), command.InOrStdin(), command.ErrOrStderr(), title, true, func(ctx context.Context, page int, search string) (tui.Page, error) {
+	selected, err := r.selectChoices(command, title, true, func(ctx context.Context, page int, search string) (tui.Page, error) {
 		filtered := []tui.Choice{}
 		for _, choice := range choices {
 			if strings.Contains(strings.ToLower(choice.Label), strings.ToLower(search)) {

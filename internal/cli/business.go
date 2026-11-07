@@ -16,13 +16,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// addBusinessCommands 注册 P2 实际可用的认证、只读仓库和诊断入口。
+// addBusinessCommands 注册已实现的认证、仓库、Issue、PR、Release 与诊断入口。
 // 所有入口共用 runtime 与应用服务，不创建未来业务命令的空实现。
-func addBusinessCommands(root *cobra.Command, opts *options, version string) {
-	r := &runtime{options: opts}
+func addBusinessCommands(root *cobra.Command, r *runtime, version string) {
 	addAuthCommands(root, r)
 	addReadCommands(root, r)
 	addIssueCommands(root, r)
+	addPRCommands(root, r)
+	addReleaseCommands(root, r)
 	addAPICommand(root, r)
 	instance := &cobra.Command{
 		Use:   "instance",

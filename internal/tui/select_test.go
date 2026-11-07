@@ -77,9 +77,16 @@ func TestSelectorRetainsExplicitSelectionAcrossPages(t *testing.T) {
 		Runes: []rune("changed"),
 	})
 	current = updated.(model)
+	updated, _ = current.Update(tea.KeyMsg{Type: tea.KeySpace})
+	current = updated.(model)
+	updated, _ = current.Update(tea.KeyMsg{
+		Type:  tea.KeyRunes,
+		Runes: []rune("query"),
+	})
+	current = updated.(model)
 	updated, _ = current.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	current = updated.(model)
-	if len(current.selected) != 2 || current.page != 1 || current.query != "changed" {
+	if len(current.selected) != 2 || current.page != 1 || current.query != "changed query" {
 		t.Fatal("search or pagination lost prior explicit selections")
 	}
 	updated, _ = current.Update(loaded{

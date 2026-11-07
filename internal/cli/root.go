@@ -9,12 +9,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
+	target "github.com/Spring-Ocean/gitea-cli-so/internal/context"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/git"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/output"
 )
 
-// options 只保存当前已实现基础能力需要的选项。
-// 已接入上下文、认证与只读链路，后续写入和样式选项随实际能力加入。
+// options 保存单次命令或菜单会话的上下文、输出策略及类型化结果。
+// 不保存凭证对象或写入计划；每个菜单动作使用独立参数容器。
 type options struct {
 	redactor        *output.Redactor
 	instance        string
@@ -29,12 +30,25 @@ type options struct {
 	json            bool
 	workdir         string
 	noInteractive   bool
+	color           string
+	lastResult      *app.Result
+	noLocal         bool
+	onResolve       func(target.Input)
+	browseScope     *browseScope
 }
 
 // NewRootCommand 创建相互独立的命令树，不访问配置或凭证。
 // version 注入构建版本；调用者可设置 I/O 与 context 后执行，未实现入口不会被注册。
 func NewRootCommand(version string) *cobra.Command {
+	root, _ := newRootCommand(version)
+	return root
+}
+
+// newRootCommand 为直接命令和菜单动作建立独立参数容器。
+// 菜单复用 RunE 适配器与应用服务，不启动子 CLI，也不解析输出文本。
+func newRootCommand(version string) (*cobra.Command, *runtime) {
 	opts := &options{redactor: output.NewRedactor(os.Getenv("SOTEA_TOKEN"))}
+	r := &runtime{options: opts}
 	root := &cobra.Command{
 		Use:              "sotea",
 		Short:            "CLI for self-hosted Gitea",
@@ -48,9 +62,13 @@ func NewRootCommand(version string) *cobra.Command {
 			if opts.json {
 				return app.Wrap(app.InvalidArgument, "Specify a command when using --json.", nil)
 			}
+			if r.interactive(command) {
+				return r.menu(command, version)
+			}
 			return command.Help()
 		},
 	}
+	root.PersistentFlags().StringVar(&opts.color, "color", "auto", "Use auto, always, or never for sotea color and emphasis")
 	root.PersistentFlags().BoolVar(&opts.json, "json", false, "Print a structured JSON result")
 	root.PersistentFlags().StringVar(&opts.workdir, "workdir", "", "Run in the specified working directory")
 	root.PersistentFlags().BoolVar(&opts.noInteractive, "no-interactive", false, "Disable sotea prompts; Git retains its own interaction rules")
@@ -69,6 +87,9 @@ func NewRootCommand(version string) *cobra.Command {
 	root.PersistentPreRunE = func(command *cobra.Command, args []string) error {
 		if err := command.Context().Err(); err != nil {
 			return app.Failure(err)
+		}
+		if opts.color != "auto" && opts.color != "always" && opts.color != "never" {
+			return app.Wrap(app.InvalidArgument, "--color must be auto, always, or never.", nil)
 		}
 		if opts.workdir != "" {
 			info, err := os.Stat(opts.workdir)
@@ -113,6 +134,6 @@ func NewRootCommand(version string) *cobra.Command {
 				command.InOrStdin(), command.OutOrStdout(), command.ErrOrStderr())
 		},
 	})
-	addBusinessCommands(root, opts, version)
-	return root
+	addBusinessCommands(root, r, version)
+	return root, r
 }

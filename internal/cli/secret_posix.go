@@ -52,8 +52,8 @@ func readTerminal(ctx context.Context, file *os.File, echo io.Writer) (string, e
 			return "", app.Wrap(app.Cancelled, "Secure input was closed.", err)
 		}
 		switch character[0] {
-		case 3, 4:
-			return "", app.Wrap(app.Cancelled, "Token input cancelled.", context.Canceled)
+		case 3, 4, 27:
+			return "", app.Wrap(app.Cancelled, "Input cancelled.", context.Canceled)
 		case '\r', '\n':
 			return string(value), nil
 		case 8, 127:
@@ -66,7 +66,7 @@ func readTerminal(ctx context.Context, file *os.File, echo io.Writer) (string, e
 			}
 		default:
 			if character[0] < 32 || len(value) >= 1024 {
-				return "", app.Wrap(app.InvalidArgument, "A token must contain at most 1024 bytes without control characters.", nil)
+				return "", app.Wrap(app.InvalidArgument, "Input must contain at most 1024 bytes without control characters.", nil)
 			}
 			value = append(value, character[0])
 			if err := echoTerminal(echo, string(character[:])); err != nil {

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -172,24 +173,66 @@ func (r *runtime) runAPI(command *cobra.Command, path string, options *apiOption
 			returnedErr = app.Wrap(app.IOError, "Unable to close the API response.", err)
 		}
 	}()
-	if options.include {
-		if _, err := fmt.Fprintf(command.OutOrStdout(), "HTTP %d\n", response.StatusCode); err != nil {
-			return app.Wrap(app.IOError, "Unable to write the HTTP status.", err)
-		}
-		if err := response.Header.Write(command.OutOrStdout()); err != nil {
-			return app.Wrap(app.IOError, "Unable to write response headers.", err)
-		}
-		if _, err := fmt.Fprintln(command.OutOrStdout()); err != nil {
-			return app.Wrap(app.IOError, "Unable to finish response headers.", err)
-		}
-	}
 	statusErr := gitea.StatusError(response.StatusCode)
-	if options.output != "" && options.output != "-" && statusErr == nil {
-		if err := gitea.Download(command.Context(), response.Body, options.output); err != nil {
+	responseInput := io.Reader(response.Body)
+	if r.session != nil && (options.output == "" || options.output == "-" || statusErr != nil) {
+		// 仅菜单尝试有界 JSON 展示；大响应和非 JSON 字节通过原流交接完整送出。
+		prefix, err := io.ReadAll(io.LimitReader(response.Body, (2<<20)+1))
+		if err != nil {
+			return app.Failure(err)
+		}
+		if len(prefix) <= 2<<20 && json.Valid(prefix) {
+			decoder := json.NewDecoder(bytes.NewReader(prefix))
+			decoder.UseNumber()
+			var value any
+			if err := decoder.Decode(&value); err != nil {
+				return app.Wrap(app.ServerError, "Unable to read the API response.", err)
+			}
+			render := renderer(command)
+			render.Out = r.session
+			render.Redactor = r.options.redactor
+			if options.include {
+				if err := render.Details(map[string]any{
+					"http_status": response.StatusCode,
+					"headers":     response.Header,
+				}); err != nil {
+					return err
+				}
+			}
+			if err := render.Details(value); err != nil {
+				return err
+			}
+			return statusErr
+		}
+		responseInput = io.MultiReader(bytes.NewReader(prefix), response.Body)
+	}
+	stream := func() error {
+		if options.include {
+			if _, err := fmt.Fprintf(command.OutOrStdout(), "HTTP %d\n", response.StatusCode); err != nil {
+				return app.Wrap(app.IOError, "Unable to write the HTTP status.", err)
+			}
+			if err := response.Header.Write(command.OutOrStdout()); err != nil {
+				return app.Wrap(app.IOError, "Unable to write response headers.", err)
+			}
+			if _, err := fmt.Fprintln(command.OutOrStdout()); err != nil {
+				return app.Wrap(app.IOError, "Unable to finish response headers.", err)
+			}
+		}
+		if options.output != "" && options.output != "-" && statusErr == nil {
+			if err := gitea.Download(command.Context(), response.Body, options.output); err != nil {
+				return err
+			}
+		} else if _, err := io.Copy(command.OutOrStdout(), responseInput); err != nil {
+			return app.Failure(err)
+		}
+		return nil
+	}
+	if r.session != nil {
+		if err := r.session.External(command.Context(), stream); err != nil {
 			return err
 		}
-	} else if _, err := io.Copy(command.OutOrStdout(), response.Body); err != nil {
-		return app.Failure(err)
+	} else if err := stream(); err != nil {
+		return err
 	}
 	return statusErr
 }

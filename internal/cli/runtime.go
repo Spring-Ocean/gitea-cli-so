@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
@@ -20,6 +19,8 @@ import (
 	target "github.com/Spring-Ocean/gitea-cli-so/internal/context"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/git"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/gitea"
+	"github.com/Spring-Ocean/gitea-cli-so/internal/output"
+	"github.com/Spring-Ocean/gitea-cli-so/internal/tui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -30,6 +31,9 @@ type runtime struct {
 	options *options
 	cache   compat.Cache
 	writes  write.Locks
+	session *tui.Session
+	rawOut  io.Writer
+	rawErr  io.Writer
 }
 
 // printedResultError 标记已经完整输出的业务失败，避免重复 envelope。
@@ -50,6 +54,9 @@ func (r *runtime) interactive(command *cobra.Command) bool {
 	if r.options.json || r.options.noInteractive || os.Getenv("CI") != "" {
 		return false
 	}
+	if r.session != nil {
+		return true
+	}
 	for _, stream := range []any{command.InOrStdin(), command.OutOrStdout(), command.ErrOrStderr()} {
 		file, ok := stream.(*os.File)
 		if !ok || !term.IsTerminal(int(file.Fd())) {
@@ -62,10 +69,24 @@ func (r *runtime) interactive(command *cobra.Command) bool {
 // ask 在诊断流展示英文提示并读取一行显式输入。
 // 仅用于已检查的交互终端；输入结束、空值与取消均不猜测默认目标。
 func (r *runtime) ask(command *cobra.Command, prompt string) (string, error) {
+	value, err := r.askLine(command, prompt)
+	value = strings.TrimSpace(value)
+	if err == nil && value == "" {
+		return "", app.Wrap(app.InvalidArgument, "A non-empty value is required.", nil)
+	}
+	return value, err
+}
+
+// askLine 原样读取可以留空的终端行，保留 Git 字面参数的首尾空白。
+// 取消不等于空值；仅允许真实三流终端，所有返回路径恢复输入模式。
+func (r *runtime) askLine(command *cobra.Command, prompt string) (string, error) {
 	if !r.interactive(command) {
 		return "", app.Wrap(app.InvalidArgument, "Required input is missing. Supply explicit options in non-interactive mode.", nil)
 	}
-	if _, err := fmt.Fprint(command.ErrOrStderr(), prompt+": "); err != nil {
+	if r.session != nil {
+		return r.session.Prompt(command.Context(), prompt, r.session.Drain(), false)
+	}
+	if _, err := fmt.Fprint(command.ErrOrStderr(), output.SingleLine(r.options.redactor.Text(prompt))+": "); err != nil {
 		return "", app.Wrap(app.IOError, "Unable to write the input prompt.", err)
 	}
 	file := command.InOrStdin().(*os.File)
@@ -86,10 +107,6 @@ func (r *runtime) ask(command *cobra.Command, prompt string) (string, error) {
 	}
 	if err := command.Context().Err(); err != nil {
 		return "", app.Failure(err)
-	}
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return "", app.Wrap(app.InvalidArgument, "A non-empty value is required.", nil)
 	}
 	return value, nil
 }
@@ -145,10 +162,11 @@ func (r *runtime) confirm(command *cobra.Command, prompt string, explicit bool) 
 	if explicit {
 		return nil
 	}
-	answer, err := r.ask(command, prompt+" [y/N]")
+	answer, err := r.askLine(command, prompt+" [y/N]")
 	if err != nil {
 		return err
 	}
+	answer = strings.TrimSpace(answer)
 	if !strings.EqualFold(answer, "y") && !strings.EqualFold(answer, "yes") {
 		return app.Wrap(app.Cancelled, "Operation cancelled.", nil)
 	}
@@ -176,6 +194,14 @@ func (r *runtime) resolve(command *cobra.Command, input target.Input, allowPromp
 	for {
 		t, resolveErr := target.Resolve(command.Context(), input, snapshot.Config, service.Git, nil)
 		if resolveErr == nil {
+			if r.options.browseScope != nil {
+				if err := r.options.browseScope.check(t, snapshot); err != nil {
+					return target.Target{}, snapshot, service, err
+				}
+			}
+			if r.options.onResolve != nil {
+				r.options.onResolve(input)
+			}
 			if r.options.caFile != "" {
 				t.Instance.CAPath = r.options.caFile
 			}
@@ -189,20 +215,14 @@ func (r *runtime) resolve(command *cobra.Command, input target.Input, allowPromp
 		}
 		var choices *target.ChoiceError
 		if errors.As(resolveErr, &choices) {
-			for i, name := range choices.Candidates {
-				if _, err := fmt.Fprintf(command.ErrOrStderr(), "%d. %s\n", i+1, name); err != nil {
-					return target.Target{}, snapshot, service, app.Wrap(app.IOError, "Unable to display context candidates.", err)
-				}
+			items := []tui.Choice{}
+			for _, name := range choices.Candidates {
+				items = append(items, tui.Choice{ID: name, Label: name})
 			}
-			text, err := r.ask(command, "Select "+choices.Kind+" by number")
+			value, err := r.choose(command, "Choose "+choices.Kind, items)
 			if err != nil {
 				return target.Target{}, snapshot, service, err
 			}
-			index, err := strconv.Atoi(text)
-			if err != nil || index < 1 || index > len(choices.Candidates) {
-				return target.Target{}, snapshot, service, app.Wrap(app.InvalidArgument, "Selection is outside the candidate list.", nil)
-			}
-			value := choices.Candidates[index-1]
 			switch choices.Kind {
 			case "remote":
 				input.Remote = value
@@ -234,6 +254,7 @@ func (r *runtime) resolve(command *cobra.Command, input target.Input, allowPromp
 func (r *runtime) input(requireRepo bool) target.Input {
 	return target.Input{
 		Workdir:     r.options.workdir,
+		NoLocal:     r.options.noLocal,
 		Instance:    r.options.instance,
 		Account:     r.options.account,
 		Repo:        r.options.repo,
@@ -282,6 +303,7 @@ func (r *runtime) confirmInstance(command *cobra.Command, t target.Target, expli
 // 文本与 JSON 使用相同脱敏边界，失败仍保留稳定非零退出码。
 func (r *runtime) printResult(command *cobra.Command, result app.Result) error {
 	render := renderer(command)
+	r.options.lastResult = &result
 	render.Redactor = r.options.redactor
 	var err error
 	if r.options.json {
@@ -365,6 +387,10 @@ func (r *runtime) versionInfo(ctx context.Context, t target.Target, snapshot con
 func (r *runtime) secureToken(command *cobra.Command) (string, error) {
 	if !r.interactive(command) {
 		return "", app.Wrap(app.InvalidArgument, "Use --with-token for stdin input or SOTEA_TOKEN in non-interactive mode.", nil)
+	}
+	if r.session != nil {
+		secret, err := r.session.Prompt(command.Context(), "API token (input hidden)", r.session.Drain(), true)
+		return strings.TrimSpace(secret), err
 	}
 	file := command.InOrStdin().(*os.File)
 	state, err := term.GetState(int(file.Fd()))

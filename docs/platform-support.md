@@ -100,3 +100,11 @@ Windows 10 22H2／Windows 11、Intel macOS、候选最低 macOS 仍未实测；G
 ## P3 实施记录
 
 Git 2.43 功能基线已定案，2.43.7 隔离样本和本机 Apple Git 的验证各自归档。交互选择器锁定 Bubble Tea v1.3.10、go-runewidth v0.0.16，Lip Gloss v1.1.0 目前为传递依赖。上述三个模块的根 LICENSE 均为 MIT；正式发布仍须保留各依赖许可和版权声明，完整输出样式按 P5 实施。POSIX PTY 的真实键盘／取消／恢复通过，不能替代 GUI Terminal／iTerm2 或 Windows 宿主实测。详见 [P3 记录](p3-issue.md)。
+
+## P5 实施记录
+
+Lip Gloss v1.1.0、termenv v0.16.0、uniseg v0.4.7 从已有传递依赖转为直接使用，无版本升级。macOS 27 arm64 使用真实 POSIX PTY 验证完整菜单、静态降级、窄屏字素、取消恢复和 Git 交接；三目标构建记录见 [P5 证据](validation/p5-result.json)。Windows 10／11、Intel／最低 macOS、Terminal／iTerm2 GUI 仍待实测；此前 GUI 工具明确拒绝访问 Terminal，未绕过该限制。支持矩阵不删减，TERM=dumb 的 POSIX 验证不能替代传统 Windows 控制台。
+
+P5分组分页与账户浏览增量使用同一最终产物完成七版本真实菜单和POSIX PTY验证，语义色、分级按键、整组分页、静态降级及上下文隔离结果见 [本轮证据](validation/p5-account-browser-result.json)。Windows／GUI宿主的待实测状态保持不变。
+
+P5 全局排版／Markdown／账号向导增量新增直接依赖 goldmark v1.8.7（MIT，Copyright (c) 2019 Yusuke Inuzuka，模块最低 Go 1.22）；已有 x/ansi v0.10.1 转为直接使用，无版本升级。goldmark 仅解析本地正文，无外部进程／网络和系统 API 依赖。构建仍用 Go 1.27.3，正式发布需附相应许可与版权声明；新增依赖不替代既定系统／GUI 验收。

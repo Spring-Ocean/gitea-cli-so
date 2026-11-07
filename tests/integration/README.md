@@ -104,3 +104,52 @@ TLS 演练每次生成独立测试 CA 和 loopback SAN 证书，保存至 .state
 每个版本的 .state/result-<version>.json 包含实际摘要、架构、版本和逐轮资源编号；fixtures-result.json 保存 helper／HTTP／TLS 结论。脱敏汇总见 [p0-readiness.md](../../docs/p0-readiness.md)，单次验证模板见 [validation-record.example.json](../../testdata/p0/validation-record.example.json)。
 
 端口占用、镜像下载失败或版本不符均保留失败状态，不自动改端口、改版本或访问其他实例。若账号创建步骤失败，只检查该 Compose 服务的局部诊断；不要把含密钥的配置或完整日志拷入共享报告。
+
+## P4 PR／Release 回归
+
+~~~sh
+python3 scripts/check.py --phase p4
+python3 scripts/p4-workflow-smoke.py --versions 1.22.6
+python3 scripts/p4-selector-smoke.py
+~~~
+
+脚本使用 P0 合成账号与隔离 helper，在明确版本实例创建随机 sotea-p4- 组织、主仓库及改名 fork。PR 和 Release 业务通过专用 CLI 执行；初始化 API 只准备组织／团队、分支、内容和保护规则，finally 按本轮精确名称删除业务资源。各合并方式使用独立目标分支；先确认 PR 可合并再配置保护规则，冲突场景通过仅限本轮仓库的只读 SQLite 状态及 README.md 冲突文件核验后验证拒绝。数据库读取仅用于隔离测试的准备核验，产品不依赖它；不重放失败的业务写请求。
+
+组织／团队准备需要每版独立的 p4-bootstrap fixture 管理员，密码留在 .state/p4-bootstrap-<version>.json（0600）。该合成 fixture 属于隔离验证环境并明确保留，不能修改原有 P0 账号权限或拿真实团队账号代替；Gitea 不允许删除最后一个管理员，不应尝试绕过该限制清理数据库。随机组织、仓库和 fork 的清理状态与 fixture 保留分别记录。
+
+Docker 磁盘受限时按 [P3 记录](../../docs/p3-issue.md)核验主机镜像归档、轮换本项目指定服务并保留卷，不执行全局 prune。--versions 可分批运行，合并证据前必须核对产物摘要一致。最终 P4 证据见 [P4 记录](../../docs/p4-workflows.md)与 [机器记录](../../docs/validation/p4-result.json)；未具备的目标 OS／终端宿主仍保持待实测。
+
+## P5 菜单与终端
+
+使用 scripts/check.py --phase p5 构建，scripts/p5-terminal-smoke.py 验证 VT／静态菜单、会话／配置、未知结果、输出和交接；scripts/p5-gitea-menu-smoke.py --versions VERSION 在固定实例上验证真实菜单。--result 可按版本隔离记录，合并时必须核对同一二进制摘要。真实脚本只创建随机 sotea-p5- 前缀资源和独立 token，finally 按精确 ID 清理。
+
+镜像沿用 P3 已核对的主机归档，在本项目内轮换 1.22.6 与 28.3.0，保留所有卷，结束恢复原驻留镜像并停止服务；不清理其他项目。PTY 记录不替代 Windows 或 GUI 宿主验收。详见 [P5 交付记录](../../docs/p5-terminal-experience.md)。
+
+### P5 持续界面修订回归
+
+2026-11-07 根据用户 iTerm2 反馈改为 Enter 导航、Esc 返回和单一屏内结果。运行 p5-terminal-smoke.py 验证 VT／静态完整会话、默认 No、unknown 不重放、配置并发、Git／API 原始流交接及终端恢复；VT 增加持续加载中取消、resize、单一 alternate-screen 生命周期和结果滚动检查。p5-gitea-menu-smoke.py 使用同一产物，在七个固定隔离版本执行登录、候选、拒绝、关闭、Release 草稿／附件与精确清理。
+
+导航与单资源使用 Enter（静态降级输入编号即进入），多选资源才用 Space。p4-selector-smoke.py 相应保留 PR 无默认勾选和 Release 明确接受焦点标签，不再把单选 Enter 当作无效输入。修订证据见 [p5-menu-revision-result.json](../../docs/validation/p5-menu-revision-result.json)，与原 p5-result.json 分开归档；不能用 PTY 代替 iTerm2／Windows 实机验收。
+
+### P5 首页与全部业务详情修订
+
+首页资料和统一可读详情的回归扩展了现有脚本：p5-terminal-smoke.py 检查 API 返回的姓名／邮箱、Repository 分组、菜单 API JSON 数组／未知字段／大整数和脱敏，以及非 JSON API 原始交接；p5-gitea-menu-smoke.py 在每个固定版本先核对 API 用户和仓库概览，再执行原业务链路及清理。标准业务 --json 和直接 api 的原始字节／文件边界由原有测试继续保护。
+
+本轮最终证据见 [p5-home-display-result.json](../../docs/validation/p5-home-display-result.json)，包含同产物七版本、完整终端会话与清理记录。
+
+### P5 分组分页与账户浏览
+
+`p5-terminal-smoke.py` 增加固定语义色、主要／辅助／返回键位层级、PgUp／PgDn 与 Tab／Shift+Tab 切组、左右键不切组、长组滚动及 resize。`p5-browser-smoke.py` 用隔离 API 验证账户目录分页、当前页筛选、组织工作台、上下文恢复、本地 Git 隔离和外部配置变更后的请求阻断。
+
+`p5-gitea-menu-smoke.py` 为七版本各自增加随机个人仓库、组织和组织仓库的真实浏览链路；使用既有隔离 `p4-bootstrap` 账号创建组织，将 `p0-owner` 加入该随机组织，不修改测试账号全局权限，清理前再次核对资源 ID。记录仍绑定同一二进制摘要，不以旧结果替代当前产物验证。
+
+### P5 全局页面与账号向导验证
+
+`scripts/p5-guided-account-smoke.py` 使用临时 Git helper、本地合成 API 和临时配置，验证隐藏输入、取消不保存、配置变化阻断凭证查询／可重新开始、预览不保存、明确绑定、浏览续接、条件草稿徽标及 Markdown 正文。无真实开发者凭证，不修改远端资源。可选 `--screenshots PATH` 使用独立验证依赖 pyte 0.8.2 与 Pillow 12.0.0 从合成 PTY 渲染 PNG；不操作 GUI，不代表 iTerm2 验收。
+
+~~~sh
+python3 scripts/p5-guided-account-smoke.py --binary dist/p5/darwin-arm64/sotea
+uv run --with pyte==0.8.2 --with pillow==12.0.0 python scripts/p5-guided-account-smoke.py --screenshots tests/integration/.state/p5-ui-screens
+~~~
+
+七版本真实菜单脚本的 Account 登录改为四步向导、显式保存和继续；保留原有资源确认与精确清理。最终记录与旧版产物分开归档，未具备的 Windows／GUI 环境保持待实测。

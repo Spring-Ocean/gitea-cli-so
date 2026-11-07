@@ -57,11 +57,21 @@ func (m *Material) Authenticate(request *http.Request) error {
 
 // LoginOptions 明确指定来源及必要密钥，禁止猜测 helper 密码类型。
 // Secret 仅用于显式 token 登录；SaveName 是用户选择的实例别名，不自动覆盖其他实例。
+// ExpectedAccount 非空时在保存前重新核对预览身份；不匹配时不写配置或密钥库。
 type LoginOptions struct {
-	Source   string
-	AuthType string
-	Secret   string
-	SaveName string
+	Source          string
+	AuthType        string
+	Secret          string
+	SaveName        string
+	ExpectedAccount string
+}
+
+// Profile 保存 GET /user 中允许展示的身份资料，不包含凭证或权限推断。
+// Login 必须经过身份核对；可选字段保持服务端原文，由终端输出边界脱敏并清理控制符。
+type Profile struct {
+	Login    string `json:"login"`
+	FullName string `json:"full_name"`
+	Email    string `json:"email"`
 }
 
 // Status 是不包含密钥的身份诊断结果。
@@ -205,43 +215,51 @@ func (s Service) helper(ctx context.Context, directory string, query git.Credent
 // Verify 调用 GET /user 核对实际身份，明确账号不一致时停止后续业务。
 // 401 标记已有记录失效；403、网络与 TLS 错误不删除或 reject 凭证。
 func (s Service) Verify(ctx context.Context, t target.Target, m *Material) (string, error) {
+	profile, err := s.verifyProfile(ctx, t, m)
+	return profile.Login, err
+}
+
+// verifyProfile 从 GET /user 返回已经核对身份的最小用户资料。
+// 可选显示字段缺失不影响身份验证，账号冲突或认证失败不返回任何资料。
+func (s Service) verifyProfile(ctx context.Context, t target.Target, m *Material) (Profile, error) {
 	if m == nil {
-		return "", app.Wrap(app.AuthRequired, "An authenticated identity is required.", nil)
+		return Profile{}, app.Wrap(app.AuthRequired, "An authenticated identity is required.", nil)
 	}
 	verification := s
-	verification.HTTPOptions = gitea.Options{Timeout: 30 * time.Second, MaxResponseBytes: 1 << 20}
+	verification.HTTPOptions = gitea.Options{
+		Timeout:          30 * time.Second,
+		MaxResponseBytes: 1 << 20,
+	}
 	client, err := verification.client(t, m)
 	if err != nil {
-		return "", err
+		return Profile{}, err
 	}
 	defer client.Close()
 	response, err := client.Do(ctx, gitea.Request{Path: "/user"})
 	if err != nil {
-		return "", err
+		return Profile{}, err
 	}
-	var user struct {
-		Login string `json:"login"`
-	}
+	var user Profile
 	if err := gitea.Decode(response, &user); err != nil {
 		if app.Failure(err).HTTPStatus == 401 && s.matchesSaved(t, m) {
 			if recordErr := s.markInvalid(ctx, t); recordErr != nil {
-				return "", app.Wrap(app.AuthRequired, "Authentication failed and its invalid state could not be saved. Sign in again.", recordErr)
+				return Profile{}, app.Wrap(app.AuthRequired, "Authentication failed and its invalid state could not be saved. Sign in again.", recordErr)
 			}
 		}
-		return "", err
+		return Profile{}, err
 	}
 	if user.Login == "" || len(user.Login) > 255 || strings.ContainsAny(user.Login, "/\\") {
-		return "", app.Wrap(app.ServerError, "The identity response does not contain a login.", nil)
+		return Profile{}, app.Wrap(app.ServerError, "The identity response does not contain a login.", nil)
 	}
 	for _, character := range user.Login {
 		if unicode.IsControl(character) {
-			return "", app.Wrap(app.ServerError, "The identity response contains invalid account characters.", nil)
+			return Profile{}, app.Wrap(app.ServerError, "The identity response contains invalid account characters.", nil)
 		}
 	}
 	if t.Account != "" && !strings.EqualFold(t.Account, user.Login) {
-		return "", app.Wrap(app.IdentityMismatch, "The credential belongs to a different API account. Select that account explicitly before continuing.", nil)
+		return Profile{}, app.Wrap(app.IdentityMismatch, "The credential belongs to a different API account. Select that account explicitly before continuing.", nil)
 	}
-	return user.Login, nil
+	return user, nil
 }
 
 // markInvalid 仅更新同实例同账号的失效标记，不更换认证来源。
@@ -271,26 +289,39 @@ func (s Service) markInvalid(ctx context.Context, t target.Target) error {
 // Open 验证所选凭证后创建业务客户端，允许完全无凭证的公开读取。
 // 每次调用重新验证身份，不把历史登录当作永久授权；调用者负责关闭客户端。
 func (s Service) Open(ctx context.Context, t target.Target, anonymous bool) (*gitea.Client, target.Target, error) {
-	m, err := s.Credentials(ctx, t, anonymous)
-	if err != nil {
-		return nil, t, err
-	}
-	if m != nil {
-		login, verifyErr := s.Verify(ctx, t, m)
-		if verifyErr != nil {
-			return nil, t, verifyErr
-		}
-		t.Account = login
-	}
-	client, err := s.client(t, m)
-	return client, t, err
+	client, verified, _, err := s.OpenProfile(ctx, t, anonymous)
+	return client, verified, err
 }
 
-// Login 显式验证身份和目标仓库，之后才保存新引用、绑定与活动账号。
-// 新 token 使用独立引用，配置保存失败会清理该引用；旧凭证不被提前覆盖。
-func (s Service) Login(ctx context.Context, t target.Target, snapshot config.Snapshot, opts LoginOptions) (Status, error) {
+// OpenProfile 验证凭证并返回同次 GET /user 获取的用户资料和业务客户端。
+// 完整实例须已确认；anonymous 允许无凭证读取，此时资料为 nil，不能把配置账号当已登录身份。
+// 账号不匹配或验证失败不返回资料和客户端；401 可记录失效标记，调用方负责 Close 成功返回的客户端。
+func (s Service) OpenProfile(ctx context.Context, t target.Target, anonymous bool) (*gitea.Client, target.Target, *Profile, error) {
+	m, err := s.Credentials(ctx, t, anonymous)
+	if err != nil {
+		return nil, t, nil, err
+	}
+	var profile *Profile
+	if m != nil {
+		verified, err := s.verifyProfile(ctx, t, m)
+		if err != nil {
+			return nil, t, nil, err
+		}
+		profile = &verified
+		t.Account = verified.Login
+	}
+	client, err := s.client(t, m)
+	if err != nil {
+		return nil, t, nil, err
+	}
+	return client, t, profile, nil
+}
+
+// loginMaterial 在来源确认后取得一次显式选定的凭证，不尝试其他认证方案。
+// 返回材料只供本次身份验证与保存；错误不包含密钥，Git匹配范围保持原有协议边界。
+func (s Service) loginMaterial(ctx context.Context, t target.Target, opts LoginOptions) (*Material, error) {
 	if !t.Registered {
-		return Status{}, app.Wrap(app.AuthRequired, "Confirm the instance source before signing in.", nil)
+		return nil, app.Wrap(app.AuthRequired, "Confirm the instance source before signing in.", nil)
 	}
 	var material *Material
 	var err error
@@ -331,12 +362,40 @@ func (s Service) Login(ctx context.Context, t target.Target, snapshot config.Sna
 		err = app.Wrap(app.InvalidArgument, "Choose credential source git, token, or environment.", nil)
 	}
 	if err != nil {
+		return nil, err
+	}
+	s.observe(material.secret)
+	return material, nil
+}
+
+// PreviewLogin 只验证向导当前选择的凭证并返回真实API身份，不保存账号或密钥。
+// 未确认实例被拒绝；输入中的明确账号必须匹配，不更新已有记录的失效标记或配置修订。
+func (s Service) PreviewLogin(ctx context.Context, t target.Target, opts LoginOptions) (Profile, error) {
+	material, err := s.loginMaterial(ctx, t, opts)
+	if err != nil {
+		return Profile{}, err
+	}
+	t.Instance.Accounts = nil
+	return s.verifyProfile(ctx, t, material)
+}
+
+// Login 显式验证身份和目标仓库，之后才保存新引用、绑定与活动账号。
+// 新 token 使用独立引用，配置保存失败会清理该引用；旧凭证不被提前覆盖。
+func (s Service) Login(ctx context.Context, t target.Target, snapshot config.Snapshot, opts LoginOptions) (Status, error) {
+	if !t.Registered {
+		return Status{}, app.Wrap(app.AuthRequired, "Confirm the instance source before signing in.", nil)
+	}
+	material, err := s.loginMaterial(ctx, t, opts)
+	if err != nil {
 		return Status{}, err
 	}
 	s.observe(material.secret)
 	login, err := s.Verify(ctx, t, material)
 	if err != nil {
 		return Status{}, err
+	}
+	if opts.ExpectedAccount != "" && !strings.EqualFold(login, opts.ExpectedAccount) {
+		return Status{}, app.Wrap(app.IdentityMismatch, "The verified identity changed before saving. Verify the credentials again.", nil)
 	}
 	if t.Repository != "" {
 		client, clientErr := s.client(t, material)

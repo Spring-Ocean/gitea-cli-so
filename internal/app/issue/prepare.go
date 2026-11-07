@@ -133,38 +133,9 @@ func (s Service) Prepare(ctx context.Context, input Request) (*Plan, error) {
 		return nil, err
 	}
 	defer client.Close()
-	if len(request.LabelRefs) > 0 {
-		resolved, err := resolveLabels(ctx, client, base, request.LabelRefs)
-		if err != nil {
-			return nil, err
-		}
-		ids := []int64{}
-		for _, label := range resolved {
-			ids = append(ids, label.ID)
-		}
-		request.Changes.Labels = &ids
-	} else if request.Changes.Labels != nil && len(*request.Changes.Labels) > 0 {
-		references := []string{}
-		for _, id := range *request.Changes.Labels {
-			if id < 1 {
-				return nil, app.Wrap(app.InvalidArgument, "Label IDs must be positive.", nil)
-			}
-			references = append(references, strconv.FormatInt(id, 10))
-		}
-		if _, err := resolveLabels(ctx, client, base, references); err != nil {
-			return nil, err
-		}
-	}
-	if request.MilestoneRef != "" {
-		id, err := resolveMilestone(ctx, client, base, request.MilestoneRef)
-		if err != nil {
-			return nil, err
-		}
-		request.Changes.Milestone = &id
-	} else if request.Changes.Milestone != nil && *request.Changes.Milestone > 0 {
-		if _, err := resolveMilestone(ctx, client, base, strconv.FormatInt(*request.Changes.Milestone, 10)); err != nil {
-			return nil, err
-		}
+	request.Changes, err = ResolveReferences(ctx, client, base, request.Changes, request.LabelRefs, request.MilestoneRef)
+	if err != nil {
+		return nil, err
 	}
 	legacy := (request.Operation == "issue.assignee.add" || request.Operation == "issue.assignee.remove") && s.Version.Raw != "1.27.3" && s.Version.Raw != "28.3.0"
 	plan := &Plan{

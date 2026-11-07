@@ -1,0 +1,417 @@
+{
+  "schema_version": 1,
+  "time_utc": "2026-11-07T08:35:50.379360+00:00",
+  "phase": "P5",
+  "status": "implemented_and_seven_version_menu_passed_pending_platform_and_gui_runtime",
+  "host": {
+    "os": "macOS",
+    "version": "27.0",
+    "architecture": "arm64"
+  },
+  "build": {
+    "schema_version": 1,
+    "time_utc": "2026-11-07T08:30:39.527528+00:00",
+    "go": "go1.27.3",
+    "commit": "0911cab0534dbde213c69732e3dfb676b943e724",
+    "worktree_dirty": true,
+    "checks": {
+      "go_test": "passed",
+      "go_vet": "passed"
+    },
+    "artifacts": [
+      {
+        "os": "darwin",
+        "arch": "arm64",
+        "path": "dist/p5/darwin-arm64/sotea",
+        "sha256": "e6d66eb297cf04acf5a2a68dcb28a18d4f3aab9edef79c8949dc55b17aa457f1",
+        "runtime_status": "passed_macos27_arm64_real_gitea_and_posix_pty"
+      },
+      {
+        "os": "darwin",
+        "arch": "amd64",
+        "path": "dist/p5/darwin-amd64/sotea",
+        "sha256": "5e942acee269da19d237108ef45a31283224a2376f2a68b287ef7e502997c5f7",
+        "runtime_status": "not_tested"
+      },
+      {
+        "os": "windows",
+        "arch": "amd64",
+        "path": "dist/p5/windows-amd64/sotea.exe",
+        "sha256": "1b050dda536469761faa67a729ed8201ec3a84ba834000f4ae72bc208d17cd9a",
+        "runtime_status": "not_tested"
+      }
+    ],
+    "source_sha256": {
+      "cmd/sotea/main.go": "0ce025d491122b0dad1446ad1285c1c251f35b7bae352de448c1b900985a0496",
+      "go.mod": "74a421f6c7904e7ee44ea09d5a7ef16595df15257d0279d0a863e894ce702f97",
+      "go.sum": "faacbf21381cca65195e258c7267b195313bb2700546f6cd28f8e0ef27fe7157",
+      "internal/app/error.go": "c4e3388c282a52dbe848efe1180f31eff2cc385e6eeb6276a8e608ab54cf62fb",
+      "internal/app/issue/collections.go": "f969ce63156a2b092130d986944a2c6c2e8647511c69a4193aa52b844e48ecb1",
+      "internal/app/issue/commit.go": "4991a101cf4b9676cf478b42a5685d4f77a98c82182c8d5b919c1c7f85298991",
+      "internal/app/issue/issue_test.go": "d26135fd4c53edd578c5414581ed1a883d2a312ff8fc53dd67563700692bc155",
+      "internal/app/issue/prepare.go": "c18ab315d92cc16eac2a0c489f5a07440a7957fa6f7b66ae52862d240ae0ec78",
+      "internal/app/issue/read.go": "34a632c70286b4058f5430a227c2c023a79d61ef320fa8906885b32ad57d17e5",
+      "internal/app/issue/references.go": "656cf619bb72a95f4b829f9680aacf2dd69ecc2d409db2f7533803688271f84c",
+      "internal/app/issue/types.go": "a71fe1fbfaaead6c21dd452e8cd9434c20feaa1007d60795c0bc2c18fbdbb675",
+      "internal/app/pullrequest/commit.go": "77dc023875d337a097f79be5283c1b0899fa99c39b23f194d289f8be70b38125",
+      "internal/app/pullrequest/prepare.go": "916331123dee1d29c76fbcff9d62153496a4e9868d68b9fa11a65d18f2320030",
+      "internal/app/pullrequest/read.go": "8e1947ec15133674e96e94c0a00ac06c718393a5197bf763b8720dce59b4dcd6",
+      "internal/app/pullrequest/service_test.go": "4e4521e97f420d3ffc173e6b9e3f13e6a56648614918d3cbc91015a316741662",
+      "internal/app/pullrequest/types.go": "172412f5fb731648817f1708c1337e73534c84d255d888b6251e02b56fb6156b",
+      "internal/app/release/commit.go": "c97042b8328a1b04162bd01356d32013488987ad079d5daa6167bdce24a515c9",
+      "internal/app/release/prepare.go": "542e0e6ec735e7dc20f4455d2a1e08548fbbf630bb2fbb2a481f56edd6db5639",
+      "internal/app/release/service_test.go": "fbf7bdd219a6a65f7f56c4679959abc6da78191bfd3fe44f3d47f1d2e2225579",
+      "internal/app/release/types.go": "5bcfc93413533686d99c68d1a769f2269dd52c9de4c71a06cf9f5a4c9aed6287",
+      "internal/app/release/upload.go": "ee365037553536a784b647e93ac11a4bae11ae4318ec122822b3b5798b97e45a",
+      "internal/app/repository/read.go": "f18d0b24ed6206d45025813513a79cbdf2236119395c3703c98f76bad3453439",
+      "internal/app/result.go": "70c4e531b698b56729af6fd434d9034578f4919481a87bfb70e26f78639fafdd",
+      "internal/app/result_test.go": "462528118df456a57f7cf362166fce27f8b54bce5382375c766521380f36f389",
+      "internal/app/write/locks.go": "efd8470680a14561b2910fe123ae599cacb196839f3bee437f6b24d233fb7b1b",
+      "internal/app/write/service.go": "c5cf68ed91fba5cd58a70fdf7bf8ec962b07079b577bde9ba7ec46c95f651c46",
+      "internal/auth/check.go": "58083d3052b6c2e4bd800ed6c705d3c6c06625d3edf1c3db539423b6657df4c1",
+      "internal/auth/service.go": "a66ebf1c80b94473a1bbee70851bd707a71f2ab13f4d9a24810beb1a95568f8e",
+      "internal/auth/service_test.go": "3ef20103b83450ea6bb33325e2a8e4c6a3e363be7ac1afc5443f0f79bd449ffe",
+      "internal/auth/vault.go": "a7ca5b5827698f79ce02d610917e3d0b7960cb83abf9b2b1e95c217646f24929",
+      "internal/auth/vault_test.go": "3e83e92a831022ea9d16fd47b78a4d6869296e1244e23ec1429ba424c4b98bf2",
+      "internal/cli/api.go": "28de91a7485ef91685eb45a8600bd449017363905e3912fee99b88b8dc17c444",
+      "internal/cli/api_test.go": "dd1c66cadbd2a2e65b79f94ce010454848377b730b883e1359b2df724e698667",
+      "internal/cli/business.go": "582a5eb80e8baa08ea1a0b56caa9779261e2ed7b843c3604b585caec54e6a577",
+      "internal/cli/business_test.go": "1a53a4272a607f3a3b6912e1aec3ead31dc075349ad320afde8a0a722a75f328",
+      "internal/cli/candidates.go": "26772551843f64545ec807a9d3bf2c242e100b3202c08885d744bb490c4c6134",
+      "internal/cli/execute.go": "9fbb4a8e1438c64fca07bffe7bee7d812429462496258a1fea9201ee186a011c",
+      "internal/cli/execute_test.go": "c0f2965f7938c7bb0c7346466e4953e76ae1b05fd7626d49a1b26877fb542bcc",
+      "internal/cli/file_input.go": "0302bfad844bf6d9dce90cb0992892e03bd74c941f948b6a483ef6754f774b80",
+      "internal/cli/file_input_posix_test.go": "35fcb060798bddebdf80833374b57a1bd3f87aa694048bc3f7fffd1b383ae0d3",
+      "internal/cli/forms.go": "dd8f9c4c7e94fd8eb759c0817cfe68a0392a78e5463cf7b1048f830c2adff03b",
+      "internal/cli/issue.go": "49bf161955fed3526315a0c97ac20c0e6cffdeffd8513ebd80f21b4d29b86c76",
+      "internal/cli/issue_select.go": "cd5fb53f1b925ca764ccc43d675ebeb6d30414d404b5011f24d963478e84daed",
+      "internal/cli/menu.go": "516c65ec84f6afdbabdfbdb6dff338724e1f5bf8206c0db1a5a2bd8a03ca6e9c",
+      "internal/cli/menu_test.go": "73bc2758aed2cb071142db57b6019684dae3710eece516278822f5b950519313",
+      "internal/cli/pullrequest.go": "3978550b51594088a0809c30f2a6de0417a1042e3d1647c86a3cb567fbbfeee1",
+      "internal/cli/release.go": "214eb61195e03e419c367a0cf05e9a55e6eddb061a93821575a4653c6c756018",
+      "internal/cli/root.go": "c013c4adab0f7560d8492f679a0c8013c0b20677deab64e437836982feb58bb8",
+      "internal/cli/root_test.go": "6e40a20287a2a39b71a6a5d47397abfd101510adf0abd5622c2bda49e534f577",
+      "internal/cli/runtime.go": "988bb150d725af090ebe6f6c8a48e080e9a846ef9ccdb31799282ed7916f9193",
+      "internal/cli/secret_posix.go": "df686a823bd6621843fed3ad4f702578807665b9f5a2a33c845fb57767a24398",
+      "internal/cli/secret_windows.go": "0c1a93237dd8dfab1f4b9d0265e0932ed7346772bd6381415a0c1925fd9b0f55",
+      "internal/cli/selection.go": "6f991797c8e480391dfac548c7005968fc21a02423e64f81caae3466398f1ad3",
+      "internal/compat/pullrequest.go": "2206488d202287d3f2ab9f63bdc3da10eefd47474f9e7d7f292c664c2de732e3",
+      "internal/compat/version.go": "bfdb3c5592206e0c82dc045e681802edcfa085c4a54d638c712c9a9055841510",
+      "internal/compat/version_test.go": "677cb630d87114890731fdf0cdfcf0191e4bc3e8deedca74bd509cdfd69385ed",
+      "internal/config/replace_posix.go": "106c4fb81ed3e5f9fca8be7ee8ac0f3832a0f71a1e40e2de8c42e00a1f6d155d",
+      "internal/config/replace_windows.go": "6fb02366938e05cde1092042a015de2396b2c4d3eabeab801cb7d8dea5adf412",
+      "internal/config/store.go": "726ce977d59a09cede4597a2adb6c74a7524bdd4696f70ddd88124339fb4c0eb",
+      "internal/config/store_test.go": "24dcb0767bfb3ff1563fc1acdfeaed940a1f5adb8220719e190da39dbff251be",
+      "internal/config/types.go": "7ef61cee1967e205e17d8941b942bcbe889e976060f5e83f1e7342b98d174c33",
+      "internal/context/resolve.go": "6a3f9d8e02407c1e3f8db7d7a862c60fa02f8d0b9a6c27ff1cc21853559e2b4f",
+      "internal/context/resolve_test.go": "6894cd626bd47c99da16db41b6b291a1f339e694a97061865e2b92e00bfb7bde",
+      "internal/fileinput/open.go": "3cc378cf6e416560779825a67b8e56a9b2ec54e8cf758c910d9385f7ead7dbb5",
+      "internal/fileinput/open_posix.go": "df8096fdd2a26ce0a719843afa560d29278d168d2061a8f6e039a7b4eaaedb3f",
+      "internal/fileinput/open_windows.go": "002088fdadaed8076902cb0ba0a33ba3ec96f6f143ced30cef181e3deb2ae11c",
+      "internal/git/credential.go": "aeb3e3e9b31a961cba240c05ce5d40cbde3f0d5fdfba7ff80e1f777ca42b36d0",
+      "internal/git/process_posix.go": "6f44b17529381a90118bc36077b41ed1f263ecd229a777d6688bbe1716b46920",
+      "internal/git/process_windows.go": "24df640387a7e85c4c43ae14f3b257d66851348c378896d32183ae55f2580a85",
+      "internal/git/repository.go": "30041877c3d3ebcdc28b9996645ce86a39e02b766947112854cf985516eb9ecf",
+      "internal/git/runner.go": "5e48c56ea78353eb78d3e91d170f13a9aed2cb8a4462085c88c04cdc965a7a44",
+      "internal/git/runner_test.go": "d12b75899983c2a2df145a8b36887eca423e1ddf8b2349c000b7ad9e5b9c66b9",
+      "internal/gitea/client.go": "9a9cd77550e84537f1b2e19e88ff8bd9b1df175f8ce7093467bd4a95fe06f3cf",
+      "internal/gitea/client_test.go": "26774a612e6834654c72f782817f292ceccbb732707c7a82fa07045118303259",
+      "internal/gitea/download.go": "096ac75cf101dd7175297a746619c51ce07d9ecbc7a95fed6c9d3c55704a3202",
+      "internal/gitea/download_test.go": "8e959eb114f54b93497d1ce84809fe3e515cfb978ac3475a29770bb25b32b4e5",
+      "internal/gitea/json.go": "a3b7d681e354ea23912d92faf867d1a0a3a5f384838d92b3bee801a8bb7c4e46",
+      "internal/gitea/pages.go": "a12d15b2e419286fb9d13c2dfc8b00ef0853016e115602517f603bef87baac43",
+      "internal/mcp/server.go": "5e8a239fa378286b030a530c82b4937968d6208e51c79d02bf7b3f1bdd4e11ca",
+      "internal/mcp/server_test.go": "f7ac6b40603ba93de1a54d59cf2a15cd91c4e3f3de31e1382625164c0bc87205",
+      "internal/output/render.go": "6d202c8715dea827a97f321027326a305f626f94c9fdcf86e22771612e2201ca",
+      "internal/output/render_test.go": "52800282175b2422a860f8f6e001dc93faace630efae8f914bf2764d6cdeebef",
+      "internal/output/terminal.go": "41eb1910b437f0dcf41a5484e8f7df0375c9a71d57edd3023fd3d30f02860fe1",
+      "internal/output/terminal_test.go": "8c5ce0d1a6d775fde612d188d18e26c80fa80567b642e79f4c1db5ec9aa6aa75",
+      "internal/tui/select.go": "c29843e86fb19b5dc60f56abf11c8d944b68e9c1f6ab902170b3f0d6ce496025",
+      "internal/tui/select_test.go": "dfea0340de65ece49fc4f2f81e39067b009ec86313b7aacc6e57c57fa97b6887"
+    }
+  },
+  "checks": {
+    "go_test": "passed",
+    "go_test_race": "passed",
+    "go_vet": "passed",
+    "three_platform_build": "passed",
+    "gofmt": "passed",
+    "git_diff_check": "passed",
+    "document_links": "passed",
+    "dependency_root_licenses": "MIT_verified"
+  },
+  "real_gitea_menu": {
+    "binary_sha256": "e6d66eb297cf04acf5a2a68dcb28a18d4f3aab9edef79c8949dc55b17aa457f1",
+    "versions": [
+      {
+        "version": "28.3.0",
+        "status": "passed",
+        "cleanup": "passed",
+        "checks": [
+          "subdirectory_context_discovery",
+          "menu_environment_login",
+          "stable_label_candidates",
+          "default_no_zero_write",
+          "issue_close",
+          "branch_target_candidates",
+          "unicode_notes_file",
+          "release_draft",
+          "unicode_single_attachment"
+        ]
+      },
+      {
+        "version": "1.27.3",
+        "status": "passed",
+        "cleanup": "passed",
+        "checks": [
+          "subdirectory_context_discovery",
+          "menu_environment_login",
+          "stable_label_candidates",
+          "default_no_zero_write",
+          "issue_close",
+          "branch_target_candidates",
+          "unicode_notes_file",
+          "release_draft",
+          "unicode_single_attachment"
+        ]
+      },
+      {
+        "version": "1.26.4",
+        "status": "passed",
+        "cleanup": "passed",
+        "checks": [
+          "subdirectory_context_discovery",
+          "menu_environment_login",
+          "stable_label_candidates",
+          "default_no_zero_write",
+          "issue_close",
+          "branch_target_candidates",
+          "unicode_notes_file",
+          "release_draft",
+          "unicode_single_attachment"
+        ]
+      },
+      {
+        "version": "1.25.5",
+        "status": "passed",
+        "cleanup": "passed",
+        "checks": [
+          "subdirectory_context_discovery",
+          "menu_environment_login",
+          "stable_label_candidates",
+          "default_no_zero_write",
+          "issue_close",
+          "branch_target_candidates",
+          "unicode_notes_file",
+          "release_draft",
+          "unicode_single_attachment"
+        ]
+      },
+      {
+        "version": "1.24.7",
+        "status": "passed",
+        "cleanup": "passed",
+        "checks": [
+          "subdirectory_context_discovery",
+          "menu_environment_login",
+          "stable_label_candidates",
+          "default_no_zero_write",
+          "issue_close",
+          "branch_target_candidates",
+          "unicode_notes_file",
+          "release_draft",
+          "unicode_single_attachment"
+        ]
+      },
+      {
+        "version": "1.23.8",
+        "status": "passed",
+        "cleanup": "passed",
+        "checks": [
+          "subdirectory_context_discovery",
+          "menu_environment_login",
+          "stable_label_candidates",
+          "default_no_zero_write",
+          "issue_close",
+          "branch_target_candidates",
+          "unicode_notes_file",
+          "release_draft",
+          "unicode_single_attachment"
+        ]
+      },
+      {
+        "version": "1.22.6",
+        "status": "passed",
+        "cleanup": "passed",
+        "checks": [
+          "subdirectory_context_discovery",
+          "menu_environment_login",
+          "stable_label_candidates",
+          "default_no_zero_write",
+          "issue_close",
+          "branch_target_candidates",
+          "unicode_notes_file",
+          "release_draft",
+          "unicode_single_attachment"
+        ]
+      }
+    ],
+    "scope": "Subdirectory discovery, environment login, label and branch candidates, default No, Issue close, Release draft, Unicode notes file and single attachment; exact-ID cleanup."
+  },
+  "terminal_and_regressions": {
+    "p5-terminal": {
+      "schema_version": 1,
+      "time_utc": "2026-11-07T08:34:31.421076+00:00",
+      "status": "passed",
+      "binary_sha256": "e6d66eb297cf04acf5a2a68dcb28a18d4f3aab9edef79c8949dc55b17aa457f1",
+      "checks": [
+        "three_stream_entry_matrix",
+        "loading_cancel_130",
+        "resize_during_loading",
+        "unknown_result_retained_no_replay",
+        "nonrepository_prompt_retention",
+        "session_context_not_saved",
+        "instance_switch_clears_repository",
+        "yes_does_not_select",
+        "narrow_grapheme_table",
+        "no_color_explicit_override",
+        "json_complete_unstyled",
+        "vt_persistent_session",
+        "plain_persistent_session",
+        "default_no_zero_write",
+        "no_change_no_write",
+        "explicit_clear_preserves_title",
+        "issue_multiselect",
+        "pr_review",
+        "release_draft",
+        "git_argument_array_handoff",
+        "literal_space_argument",
+        "git_nonzero_returns_to_menu",
+        "explicit_default_save",
+        "concurrent_default_save_rejected",
+        "external_configuration_notice",
+        "typed_last_result",
+        "terminal_restored"
+      ],
+      "scope": "macOS POSIX PTY with synthetic API; GUI hosts and Windows pending"
+    },
+    "p2-terminal": {
+      "schema_version": 1,
+      "time_utc": "2026-11-07T08:31:09.939593+00:00",
+      "status": "passed",
+      "binary_sha256": "e6d66eb297cf04acf5a2a68dcb28a18d4f3aab9edef79c8949dc55b17aa457f1",
+      "checks": [
+        "confirmation_sigint",
+        "hidden_token_ctrl_c"
+      ]
+    },
+    "p2-mcp": {
+      "schema_version": 1,
+      "time_utc": "2026-11-07T08:31:10.422670+00:00",
+      "binary_sha256": "e6d66eb297cf04acf5a2a68dcb28a18d4f3aab9edef79c8949dc55b17aa457f1",
+      "protocols": [
+        {
+          "protocol": "2025-11-25",
+          "status": "passed",
+          "checks": [
+            "initialize",
+            "strict_tools_list",
+            "structured_diagnostic",
+            "cached_read",
+            "unknown_argument_rejected",
+            "business_error_keeps_server_alive",
+            "config_revision_invalidates_cache",
+            "eof_exit_without_stdout_noise"
+          ]
+        },
+        {
+          "protocol": "2025-06-18",
+          "status": "passed",
+          "checks": [
+            "initialize",
+            "strict_tools_list",
+            "structured_diagnostic",
+            "cached_read",
+            "unknown_argument_rejected",
+            "business_error_keeps_server_alive",
+            "config_revision_invalidates_cache",
+            "eof_exit_without_stdout_noise"
+          ]
+        }
+      ]
+    },
+    "p3-selector": {
+      "schema_version": 1,
+      "time_utc": "2026-11-07T08:31:07.925953+00:00",
+      "status": "passed",
+      "binary_sha256": "e6d66eb297cf04acf5a2a68dcb28a18d4f3aab9edef79c8949dc55b17aa457f1",
+      "checks": [
+        "no_default_selection",
+        "cross_page_and_search_retention",
+        "selected_review_removal",
+        "no_write_before_confirmation",
+        "exact_stable_ids",
+        "cancel_130_no_write",
+        "terminal_restored"
+      ]
+    },
+    "p4-selector": {
+      "schema_version": 1,
+      "time_utc": "2026-11-07T08:31:09.249200+00:00",
+      "status": "passed",
+      "binary_sha256": "e6d66eb297cf04acf5a2a68dcb28a18d4f3aab9edef79c8949dc55b17aa457f1",
+      "checks": [
+        "pr_explicit_multiselect",
+        "release_exact_unicode_slash_tag_single_selection",
+        "no_default_selection",
+        "no_write_before_confirmation",
+        "cancel_130_no_write",
+        "terminal_restored"
+      ],
+      "scope": "POSIX PTY with synthetic API; GUI and Windows hosts remain pending"
+    }
+  },
+  "script_sha256": {
+    "scripts/p5-terminal-smoke.py": "bb315d2cf17a3e5fe6105b30accc00359130c0e1736818815fb68df68bde99c3",
+    "scripts/p5-gitea-menu-smoke.py": "e7a6e191d0cd75f83fbe96b2a2463ef7cc8ecb23dafe1b3e193c3cf02cb131c9",
+    "scripts/check.py": "62547aab5c01b7bbda9d01f5f7e35eae68f57d0006192761f44effc44f7ffe1f",
+    "scripts/p2-terminal-smoke.py": "edd679a3f6cb14859b617ea1d16162052b5828d7a4a174486b745c3fc437b971",
+    "scripts/p2-mcp-smoke.py": "25189f2c6d504d9527ae0aec7dbb8fa8c842a4ed8f74be199ad4ac96eeaaa639",
+    "scripts/p3-selector-smoke.py": "02e824ca42fed1277ce2135ce24aca68bfd1a0b957dc4701e09cecc5b21fcdb8",
+    "scripts/p4-selector-smoke.py": "a767517b0d46a74a940983634b45a44a2fcff60f468b04a93e19f1114a2aa9fb"
+  },
+  "environment": {
+    "services": [
+      "gitea-1-22-6 exited",
+      "gitea-1-23-8 exited",
+      "gitea-1-24-7 exited",
+      "gitea-1-25-5 exited",
+      "gitea-1-26-4 exited",
+      "gitea-1-27-3 exited"
+    ],
+    "volumes_preserved": [
+      "sotea-p0_gitea-1-22-6",
+      "sotea-p0_gitea-1-23-8",
+      "sotea-p0_gitea-1-24-7",
+      "sotea-p0_gitea-1-25-5",
+      "sotea-p0_gitea-1-26-4",
+      "sotea-p0_gitea-1-27-3",
+      "sotea-p0_gitea-28-3-0"
+    ],
+    "original_resident_image_1_22_6": "restored_with_pinned_digest",
+    "image_28_3_0": "verified_host_archive_retained",
+    "global_cleanup": "not_performed",
+    "other_projects": "not_modified"
+  },
+  "pending_runtime": [
+    "macOS Terminal GUI",
+    "macOS iTerm2 GUI",
+    "macOS Intel",
+    "minimum macOS proposal",
+    "Windows 10 22H2 amd64 Terminal + PS5.1",
+    "Windows 11 Terminal + PS5.1",
+    "Windows 11 Terminal + PS7.6",
+    "Windows traditional console"
+  ],
+  "gui_limitation": "Previous P4 GUI tool access to com.apple.Terminal was refused for safety; POSIX PTY evidence is not GUI acceptance."
+}

@@ -1,8 +1,8 @@
 # sotea 首版运行与认证契约
 
-> 状态：首版目标契约已确认；P2 上下文、认证、只读链路及 MCP 诊断原型已实现；后续业务与完整交互待实施
+> 状态：P2 至 P5 业务 CLI、上下文、认证、持续菜单和终端输出已实现；MCP 为诊断原型，完整工具与目标宿主验收待推进
 >
-> 更新日期：2026-11-06
+> 更新日期：2026-11-07
 >
 > 依据：[requirements.md](requirements.md)、[technical-design.md](technical-design.md)
 
@@ -16,7 +16,7 @@
 | sotea 加子命令 | 参数完整时按命令执行；必需参数缺失且有交互终端时补全，写操作确认后执行。 |
 | sotea mcp serve | 本地 stdio 服务；客户端启动和管理进程，按 MCP 参数调用共享应用服务，不显示菜单。 |
 
-菜单按 Issue、PR、Release 的全部首版命令提供入口；完成操作后回到对应列表或菜单。列表和结果显示当前实例、账号及仓库。Git 菜单提供显式参数输入的系统 Git 入口，执行前结束菜单渲染，Git 结束后恢复；保留 Git 自身的交互。
+菜单按 Issue、PR、Release 的全部首版命令提供入口；完成操作后回到对应列表或菜单。列表和结果显示当前实例、账号及仓库。Git 菜单提供显式参数输入的系统 Git 入口，执行前暂停持续菜单并交接真实终端，Git 结束后恢复；保留 Git 自身的交互。
 
 无参数且 stdin、stdout、stderr 任一不是终端时显示帮助并成功退出。CI、--no-interactive 和 --json 禁止交互；缺少必需参数时返回参数错误，不猜测目标。--help 总是显示帮助。--yes 仅跳过确认，不填写必需参数或勾选目标。
 
@@ -154,11 +154,11 @@ SSH remote 的 key、agent 和主机别名不按上述 HTTP 凭证模式读取�
 | 列表 | --page 默认 1、--limit 默认 30 且最多 100；--all 显式拉取后续页，默认上限 10000 项。超过上限须报错并标记不完整，不能显示已读部分为完整结果。 |
 | Issue list | --state open / closed / all，默认 open；--search、可重复 --label、--assignee、--milestone。 |
 | PR list | --state open / closed / all，默认 open；--search、--base、--author。 |
-| Issue / PR create、edit | --title、--body 或 --body-file；可重复 --assignee、--label，--milestone。创建标题必需，正文可为空；编辑至少有一项显式变更。PR 创建还需 --base 和 --head，编辑只接受服务端共同支持的分支字段。 |
+| Issue / PR create、edit | --title、--body 或 --body-file；可重复 --assignee、--label，--milestone。创建标题必需，正文可为空；编辑至少有一项显式变更。PR 创建还需 --base 和 --head，可重复 --reviewer／--team-reviewer；编辑只接受 --base，不提供 head 改写。 |
 | Issue assignee / label add、remove | 位置参数 index；分别用可重复 --user 或 --label 提供值，至少一个。标签名称必须解析为唯一 ID，有歧义报错；不模糊猜测。 |
 | Issue / PR comment add | index，--body 或 --body-file 至少一个且内容非空。 |
 | PR reviewer add | index，可重复 --user 和 --team，合计至少一个审查者。 |
-| PR review create | index、--event approve / comment / request-changes；评论及请求修改需非空正文，approve 正文可选；可用 --commit 显式指定审查提交。 |
+| PR review create | index、--event approve / comment / request-changes；评论及请求修改需非空正文，approve 正文可选；可用 --commit 显式指定完整远端 SHA；--review-id 提交已有 PENDING 审查，核对所有权与当前 head，旧 head 的 pending 审查不提交。 |
 | PR merge | index、--method 默认 merge、--delete-branch 默认 false；候选方式只提供实例及仓库允许且已经跨版本验证的方式。 |
 | Release create、edit | tag、--title、--body / --notes-file、--target、--draft / --publish、--prerelease；create 默认草稿和非预发布，edit 不传字段即不改变原值，--draft 与 --publish 互斥。 |
 | Release asset upload | tag、file，单个普通文件；上传名称默认文件名，可用 --name 指定。 |
@@ -199,11 +199,11 @@ Issue 创建后按返回编号读回全部显式字段。确认已创建但字�
 
 有部分完成且用户主动取消时以 130 优先；详情仍报告 partial/cancelled 项。单项目跳过等细分显示不得把未验证的结果称为成功。未知不是失败可重试的同义词。
 
-通用 API 默认原始响应，HTTP 非成功使用非零退出码并保留状态，--json 的业务 envelope 不包裹通用 API 的原始 body；Git 正常退出保留原退出码。MCP 使用相同应用错误类别和逐项结果，不采用操作系统退出码表示每次工具失败。
+直接执行 api 默认原始响应，HTTP 非成功使用非零退出码并保留状态，--json 的业务 envelope 不包裹通用 API 的原始 body；Git 正常退出保留原退出码。MCP 使用相同应用错误类别和逐项结果，不采用操作系统退出码表示每次工具失败。
 
 ## 7. PR 和 Release 默认流程
 
-PR 创建以当前分支作为 head 候选、仓库默认分支作为 base 候选，显示后按明确参数或选择确定；跨仓库 head 显式指定所属账号／仓库，不自动 push 本地提交。PR 合并默认 merge；仓库不允许时展示合法方式供用户选择或要求 --method，不能偷偷改用 squash。删除源分支默认 false，force merge 不作为首版专用选项。检查由服务器最终裁决，合并前绑定已读 head SHA，变化时要求重新确认。
+PR 创建以当前分支作为 head 候选、仓库默认分支作为 base 候选，显示后按明确参数或选择确定；跨仓库 head 使用 owner:branch 或 owner/repo:branch，核对实际可见 fork 关联和仓库 ID，支持改名 fork，不按同名仓库猜测，不自动 push 本地提交。PR 合并默认 merge；仓库不允许时展示合法方式供用户选择或要求 --method，不能偷偷改用 squash。删除源分支默认 false，force merge 不作为首版专用选项。检查由服务器最终裁决，合并前绑定已读 head SHA，变化时要求重新确认。
 
 Release create 默认 draft=true、prerelease=false；--publish 明确直接发布，草稿可通过 edit 的 --publish 发布。选择已有标签则核对目标；新标签要求明确 --target 或交互选择并解析成提交，不由客户端猜测 main。创建标签和 Release 的服务端具体行为须逐版本测试；已有相同标签的 Release 报冲突，不覆盖。
 
@@ -215,11 +215,11 @@ Release create 默认 draft=true、prerelease=false；--publish 明确直接发�
 - [Git credential contexts](https://git-scm.com/docs/gitcredentials)：协议、主机及 useHttpPath 的匹配规则。
 - [Gitea API authentication](https://docs.gitea.com/development/api-usage/)：API 认证与 token。文档站描述不代表七个精确版本全部具备相同认证扩展，必须按隔离实例测试确认。
 
-## 9. 当前可用入口（P3）
+## 9. 当前可用入口（P5）
 
-当前注册 version、help／补全、git、五类 auth、instance info、repo view、branch／tag／commit／label／milestone list、commit status、全部 Issue 命令、任意方法 api 和 mcp serve。无参数暂时显示帮助，P5 按本契约接入持续菜单；完整业务范围仍按前文保留。
+当前注册 version、help／补全、git、五类 auth、instance info、repo view、branch／tag／commit／label／milestone list、commit status、全部 Issue／PR／Release 命令、任意方法 api 和 mcp serve。交互三流无参数进入持续菜单，具体门槛见第 1 节；完整业务范围按前文保留。
 
-公共选项已接入 --json、--workdir、--no-interactive、--instance、--account、--repo、--remote、--config、--yes，并增加 --ca-file、--proxy 和 --confirm-instance。首次来源确认不由 --yes 代替；首次公开仓库读取在来源确认及真实读取成功后只保存非敏感映射，不强制登录。--color 与完整样式在 P5 接入。
+公共选项已接入 --json、--workdir、--no-interactive、--instance、--account、--repo、--remote、--config、--yes，并增加 --ca-file、--proxy 和 --confirm-instance。首次来源确认不由 --yes 代替；首次公开仓库读取在来源确认及真实读取成功后只保存非敏感映射，不强制登录。--color=auto／always／never 与表格样式已接入。
 
 Git 示例：sotea --workdir /path/to/repo git -- status。sotea 公共选项放在 git 之前；git 后全部参数原样交给系统 Git，可选的第一个 -- 仅作为分隔符移除。前置 --json 与 Git 透传不兼容；后置 --json 属于 Git 参数。--no-interactive 只禁止 sotea 提示，Git 透传仍遵守 Git 自己的交互配置。
 
@@ -241,3 +241,65 @@ mcp serve 当前只有 sotea_instance_info 原型，协商 2025-11-25／2025-06-
 --body-file、--input 与 --upload 只接受普通文件，符号链接仅在实际目标为普通文件时可用。打开前后均核对类型；POSIX 使用非阻塞打开，防止检查后被替换为命名管道而等待写入者。目录、管道和设备拒绝输入，不通过后台无限等待读取特殊文件。
 
 DEC-03 定案：显式下载永不覆盖已有目标，不提供隐式或强制覆盖选项。目标目录必须存在；同目录临时文件使用独立名称，接收／同步后采用不覆盖的硬链接提交，目标在传输期间被其他进程创建也返回冲突并保持其内容。失败、超限、取消清理临时文件，不留下伪完整目标。文件系统不支持所需提交语义时明确失败，不回退到可能覆盖的 rename；Windows／特殊文件系统仍需实测。
+
+## 11. P4 实施约定
+
+PR 关键词／base／author 筛选在完整有界集合上计算后分页，不依赖版本特有查询参数；默认不全量读取无筛选列表，超过 10000 项报 FILTER_LIMIT。Release list 支持 --search，按完整有界集合中的标签／标题子串匹配。
+
+PR 创建／编辑通过共同目录解析标签和里程碑。1.22.6 的创建审查者为显式补充步骤；任何创建后失败保留 PR 和已完成步骤，不重新创建。旧版 PR PATCH 会忽略里程碑 0，清空通过已校验 PR 的共享 issues 资源独立完成，失败保留之前成功的编辑。普通 PR 讨论也使用共享评论资源，但不调用 Issue 命令或混淆类型。
+
+所有合并请求绑定预览的 head SHA，默认不删除源分支；--delete-branch 显式请求时分别报告合并和实际删除结果。服务端错误不触发改字段、换方法、force 或重放合并。异步 mergeable 缓存和只读更新时间变化不单独要求重新确认，实际业务字段、状态及源目标 SHA 变化仍会停止写入。
+
+Release create 默认草稿和非预发布，新标签必须 --target，目标解析为完整 SHA，提交前核对引用未移动。已有标签显式 target 必须一致，不自动移动标签。edit 的 --draft／--publish 互斥，--prerelease=false 明确取消预发布；未提供值不变。七版不能一致保证空字符串清空 Release 名称／说明，显式空编辑直接拒绝，不静默忽略。
+
+release asset upload 一次只接受一个普通文件，默认文件名，可 --name 明确改名；默认 HTTP 预算 300 秒，主动取消可提前中止。准备后文件身份／大小／修改时间／SHA-256 任一变化都需重新确认。发送期间和发送后再次核验；未知结果先查附件，已创建附件后本地校验失败返回 partial，不补传、不发布、不回滚。附件名的预检查不是跨进程原子锁，不能保证其他进程同时上传时全局唯一。
+
+当前专用命令及验收记录见 [P4 记录](p4-workflows.md)；MCP 完整工具和持续菜单仍按 P5／P6 实施。
+
+## 12. P5 交互与终端实施契约
+
+完整命令／缺参表、按键、会话及宿主记录见 [p5-terminal-experience.md](p5-terminal-experience.md)。菜单由实际注册命令树生成，动作使用独立参数容器和共享应用服务；MCP 不从持续终端菜单启动。
+
+- VT 导航及单资源用 ↑↓ 聚焦、Enter 直接进入或接受；菜单无勾选框。只有批量资源使用 Space，Enter 提交选择集；/ 搜索、n／p 翻页、s 检查全部已选。Esc 返回直接上级，结果留屏可滚动，查看结束回同一业务菜单并恢复焦点。静态导航／单选输入编号直接进入，多选保留编号切换和 done。
+- 持续菜单共用一个全屏和输入循环；只读命令默认直接展示，Run with options · filters and advanced fields 使用统一紫色语义样式并提供筛选和分页参数。启动及主页刷新先匿名探测版本，再仅对已登记地址验证身份和仓库；失败关闭仓库业务入口并提供登录、上下文和重试。检测失败不能断言不是 Gitea，未知来源不发凭证，空账号不显示为空字段。
+- 首页 Browse account 使用当前已验证账号读取 /user/repos 与 /user/orgs；组织仓库通过 /orgs/{org}/repos 读取。每页请求 30 项，筛选只作用于当前页，Next／Previous 与刷新不隐去控制项。组织先按稳定组织 ID 重新核对；选仓库后再按稳定仓库 ID 和 full_name 核对，成功后进入现有仓库工作台。返回保留原页码、当前页筛选和焦点。接口范围按 API 对当前账号实际返回结果表述为 Account repositories，不称为实例全部仓库。
+- Browse account 的仓库工作台绑定已验证实例与账号，使用显式远端仓库目标，不继承启动目录的本地 Git 仓库；不提供 Git 操作、不克隆、不修改 remote、不保存默认配置。每次查询前重读配置并核对实例、账号和配置修订；任一绑定变化即中止浏览，要求返回 Home 后重新进入。
+- 结果详情中的顶层分组由可复用章节组件呈现。屏幕高度足够时完整展示当前组；组内容超出可视区域时只在该组内部滚动，章节之间用 PageUp／PageDown 切换，Tab／Shift+Tab 为替代键。↑／↓、Home／End 在当前长组中滚动；左右键及 h／l 保留给当前项的备选值，不用于切组。嵌套章节保持在所属顶层组内；写入计划与确认仍涵盖全部目标，不受可视分组影响。预览超过会话显示上限时明确报错并禁止在不完整预览上确认。
+- 主要动作使用较醒目的颜色与粗体，辅助提示使用弱化颜色与字重，返回操作使用独立强调色；Run with options 为紫色，分组标题统一使用章节强调色。NO_COLOR、--color=never 或终端不支持样式时仍保留英文文字、层级和操作说明，不以颜色作为唯一含义。
+- 字段页空行／Skip 不改变输入；清空须选 Clear 或适用的 clear 选项。冲突来源仍拒绝，不自动丢弃先前 flag。未选修改可返回。
+- 上下文中明确补齐的维度保留到会话；推导来源每次重读。普通切换不保存，实例切换后要求重新提供仓库；Save defaults 独立预览、默认拒绝、快照冲突不覆盖。
+- 空确认等同 No；最近类型化业务结果可回看，unknown／partial 不会被导航清成成功；Git 的非零码单独显示并返回菜单。
+- --color=auto／always／never 管理自有样式，stdout／stderr 分别检测；非空 NO_COLOR 在 auto 下生效，显式值优先。JSON 及其预览、原始 API／Git／MCP 不加业务样式。
+- 真实终端表格按完整字素宽度截断并标省略号，view／JSON 保留完整字段；管道保留完整列值。未知 TERM／dumb 使用静态输入，无 VT 全屏。
+
+### P5 首页与可读结果修订
+
+首页资料直接使用身份验证请求 GET /user 的 login、full_name 和可选 email，同一次响应通过账号一致性核对后才展示；不使用 Git 作者或配置中的名字冒充远端用户，不额外下载头像。每轮清除旧资料再验证，认证失败或来源未确认不能继续显示旧身份；实例已明确但尚无仓库时仍可展示有效用户资料。
+
+普通业务文本不再输出 JSON 对象原文：资源列表保留摘要列，详情、写入预览、诊断及嵌套数据使用英文标签、缩进、章节和原文换行。Repository 使用 Overview／Activity／Links／Access／Additional details，未知字段不丢失；布尔值显示 Yes／No，null 为 Not set，空文本为 Empty，空集合明确提示。--json 字段名、类型、精度和状态契约不变。
+
+分组结果的正文上方使用组名标签栏，当前标签使用粗体、背景色和两侧留白，其他标签弱化并以空隙分隔，不使用竖线、方括号或Group N of M数字。窄屏保留当前标签及可容纳的相邻标签，未显示的组用省略标记提示；关闭颜色以圆点标记活动标签。分组结果按顶层章节浏览，完整章节优先占据一页；仅当单组内容超出当前窗口时允许组内滚动。PageUp／PageDown 切换组，Tab／Shift+Tab 作替代键；方向键及 Home／End 在长组内滚动，左右键与 h／l 留给选项备选值。所有章节标题复用统一强调样式。主要动作、辅助说明、返回操作和 Run with options 分别有固定语义色与字重；颜色关闭或不可用时依靠文字标签和布局仍可辨别。
+
+持续菜单中的 api 响应在不超过 2 MiB 且完整内容为合法 JSON 时使用完整字段树留屏展示，保留数组各项字段、大整数、HTTP 错误状态和脱敏边界；可选响应头也脱敏。非 JSON 或超过展示解析上限的响应交接原始流；显式文件下载不进行内容重写。直接 api、Git 与 MCP 继续遵守原流／协议约定。
+
+### P5 账户目录浏览
+
+首页 Browse account 先确认实例和当前 API 身份，再读取个人仓库列表和组织成员列表。个人仓库标题为 Account repositories，准确表示 /user/repos 对当前身份返回的范围；组织通过 /user/orgs 列出，进入组织前使用 /orgs/{org} 核对稳定 ID，再请求 /orgs/{org}/repos。目录每页 30 项；名称／说明筛选只覆盖当前页，不后台扫描其余结果。页码、筛选和稳定焦点在进入仓库工作台及返回后保留。
+
+进入组织仓库前再次核对组织 ID；进入仓库前通过仓库详情核对 ID 与 full_name。工作台复用现有仓库业务入口，并使用固定的实例、账号和远端仓库。浏览上下文变化时停止发起后续请求并返回 Home 重新进入。此工作台不使用打开 sotea 时的本地 Git 仓库，不暴露 Git 操作，不克隆或更改 remote，也不将浏览目标写入默认配置。
+
+### P5 全局布局、正文和账号向导
+
+所有持续页面统一左右留白，正文可读宽度最多 104 列；品牌／目标、页面标题、内容和固定底部指引分区。Home、远端仓库工作台及各级菜单的操作选项提供简短英文description，解释用途、作用范围或执行后果；常规窗口放在名称下一行，不能仅有名称却留空说明区域。生成的命令菜单将名称与description分别传入，字段沿用实际参数说明，远端资源保留服务端内容，不为缺失的资源简介编造信息。常规窗口中选项名称粗体，说明单独一行并留白，低矮窗口压缩密度以保持动作可达。高级选项入口仍为紫色，错误／警告／成功采用固定语义色；关闭颜色后保留相同文字结构。错误页分开显示原因、错误码、Next step 与可选择的恢复动作；不会自动重放失败或结果未知的写入。
+
+已知正文属性 body、description、notes、release_notes、content、readme 使用 CommonMark／GFM 渲染。支持标题、段落、强调、列表／任务、引用、代码、链接及表格；链接显示实际地址，图片只显示说明，HTML 为惰性文本，不输出远端 ANSI／OSC、不执行代码或加载网络资源。持续页面按当前宽度重排正文，沿用原分组切换和预览上限；--json、直接 api、Git 和 MCP 协议不进入 Markdown 渲染。Release 选择器与文本列表只对草稿显示标签左侧的 ◇ Draft，已发布项不附加状态；详情仍可查看真实字段，JSON 中 draft 保持布尔类型。
+
+Account 菜单提供 Connect account、Connection status、Switch account、Update credentials、Disconnect account。连接分四步：完整实例 URL、可选预期 API 用户名、明确凭证来源与必要的隐藏输入、验证后的身份与显式 Save connection。保存页默认 Back；验证预览不写配置或密钥，保存前再次验证同一身份；来源未确认前不读取或发送凭证。输入框支持左右编辑、Home／End、删除和 Ctrl+U 清空。Esc 回上一步，离开向导恢复原会话，成功保存后选择新身份；Browse account 可在未绑定时引导并续接。
+
+刷新使用已保存账号候选，不接受隐式替换身份；切换先验证；退出明确确认并说明保留共享 Git 凭证／外部环境变量。预览和保存前核对配置快照，外部修改时停止并允许从实例步骤重新开始；工作台内更改账号要求先返回 Home。直接 auth 子命令及静态终端保持已有参数、安全输入和确认契约。
+
+### P5 结果标题、字段层级与底部位置
+
+持续VT页面成功时不显示操作的exit 0／success摘要，也不为每个资源重复输出target: success。资源目标作为独立粗体标题，与下方正文保留空行；字段名使用辅助色，值使用默认前景，复杂字段和正文仍有章节标题／缩进。failed、partial、unknown、skipped、not_executed及取消状态继续明确显示，类型化最近结果不丢失。直接CLI、静态终端、JSON和原始流保持现有状态契约。
+
+底部在按键指引上方显示当前位置，例如Home › Releases › View › Body，使用绿色普通字重，不用粗体、斜体或低对比淡化。菜单、表单、结果及资源选择均沿用此路径；活动分组名称随切换更新。颜色关闭时路径仍为可读文本。顶部保留实例／仓库与必要失败标题，成功结果的命令路径不再重复占据标题行。

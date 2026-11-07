@@ -84,6 +84,7 @@ type Renderer struct {
 	Out        io.Writer
 	Diagnostic io.Writer
 	Redactor   *Redactor
+	Color      string
 }
 
 // JSON 写出单个合法 JSON envelope，并递归遮蔽敏感字段。
@@ -118,20 +119,25 @@ func (r Renderer) safeError(failure *app.Error) *app.Error {
 	return &safe
 }
 
-// Text 写出基础可读结果，每个目标保留实际状态。
-// 此阶段不渲染动态界面；字段数据经过脱敏和控制字符清理，完整样式在 P5 实现。
+// Text 输出可读状态、列表表格或完整详情，保留每项真实执行结果。
+// 持续界面通过ResultTargetWriter显示独立资源标题；其他出口保留状态摘要，机器结果不变。
 func (r Renderer) Text(result app.Result) error {
 	for _, item := range result.Items {
-		line := fmt.Sprintf("%s: %s", item.Target, item.Status)
-		if item.Data != nil {
-			contents, err := json.Marshal(r.redactValue(item.Data))
-			if err != nil {
-				return app.Wrap(app.IOError, "Unable to encode result data.", err)
+		if writer, ok := r.Out.(ResultTargetWriter); ok {
+			if err := writer.WriteResultTarget(SingleLine(r.Redactor.Text(item.Target)), item.Status); err != nil {
+				return app.Wrap(app.IOError, "Unable to write the result title.", err)
 			}
-			line += " " + string(contents)
+		} else {
+			line := fmt.Sprintf("%s: %s", item.Target, item.Status)
+			line = Emphasis(r.Out, r.Color, SingleLine(r.Redactor.Text(line)))
+			if _, err := fmt.Fprintln(r.Out, line); err != nil {
+				return app.Wrap(app.IOError, "Unable to write the result.", err)
+			}
 		}
-		if _, err := fmt.Fprintln(r.Out, clean(r.Redactor.Text(line))); err != nil {
-			return app.Wrap(app.IOError, "Unable to write the result.", err)
+		if item.Data != nil {
+			if err := r.Value(item.Data); err != nil {
+				return err
+			}
 		}
 		if item.Error != nil {
 			if err := r.Error(item.Error); err != nil {
@@ -152,7 +158,9 @@ func (r Renderer) Error(err error) error {
 	if failure == nil {
 		return nil
 	}
-	_, writeErr := fmt.Fprintf(r.Diagnostic, "%s: %s\n", failure.Code, clean(r.Redactor.Text(failure.Message)))
+	message := clean(r.Redactor.Text(failure.Message))
+	code := StyleText(r.Diagnostic, r.Color, StyleError, string(failure.Code))
+	_, writeErr := fmt.Fprintln(r.Diagnostic, code+": "+message)
 	if writeErr != nil {
 		return app.Wrap(app.IOError, "Unable to write diagnostics.", writeErr)
 	}
@@ -206,7 +214,7 @@ func (r Renderer) redact(value any) any {
 // 文本不会执行 ANSI／OSC 控制序列，JSON 路径则交给编码器正确转义。
 func clean(text string) string {
 	return strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) && r != '\n' && r != '\t' {
+		if unicode.IsControl(r) && r != '\n' && r != '\t' || r >= 0x202a && r <= 0x202e || r >= 0x2066 && r <= 0x2069 {
 			return '\uFFFD'
 		}
 		return r

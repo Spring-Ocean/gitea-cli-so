@@ -58,8 +58,8 @@ func readTerminal(ctx context.Context, file *os.File, echo io.Writer) (string, e
 		switch record.Character {
 		case 0:
 			continue
-		case 3, 4:
-			return "", app.Wrap(app.Cancelled, "Token input cancelled.", context.Canceled)
+		case 3, 4, 27:
+			return "", app.Wrap(app.Cancelled, "Input cancelled.", context.Canceled)
 		case '\r', '\n':
 			return string(utf16.Decode(value)), nil
 		case 8, 127:

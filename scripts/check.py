@@ -31,7 +31,7 @@ def main():
     """
     parser = argparse.ArgumentParser(description="Check and build sotea development artifacts.")
     parser.add_argument("--build-only", action="store_true", help="Build without rerunning tests or vet")
-    parser.add_argument("--phase", choices=("p1", "p2", "p3"), default="p1", help="Choose the development artifact directory")
+    parser.add_argument("--phase", choices=("p1", "p2", "p3", "p4", "p5"), default="p1", help="Choose the development artifact directory")
     args = parser.parse_args()
     output = ROOT / "dist" / args.phase
     environment = dict(os.environ, GOTOOLCHAIN="go1.27.3")

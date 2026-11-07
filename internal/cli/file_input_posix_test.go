@@ -25,13 +25,6 @@ func TestSpecialInputRejectedWithoutWaiting(t *testing.T) {
 	if _, err := readBodyFile(path); err == nil || app.Failure(err).Code != app.InvalidArgument {
 		t.Fatal("body file accepted a FIFO")
 	}
-	file, err := openInputFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := file.Close(); err != nil {
-		t.Fatal(err)
-	}
 	if time.Since(started) > time.Second {
 		t.Fatal("special file checks unexpectedly waited for a writer")
 	}

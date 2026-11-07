@@ -7,18 +7,21 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"unicode"
+	"sync"
 
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
+	"github.com/Spring-Ocean/gitea-cli-so/internal/output"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mattn/go-runewidth"
 )
 
 // Choice 使用稳定 ID 关联选择，不以标题或当前页位置作为业务键。
 // Label 只用于展示，仍需清理远端终端控制字符。
 type Choice struct {
-	ID    string
-	Label string
+	ID          string
+	Label       string
+	Description string
+	Badge       string
+	Role        output.Style
 }
 
 // Page 是当前搜索结果中的一页，不声称整个仓库总数。
@@ -39,51 +42,89 @@ type loaded struct {
 }
 
 type model struct {
-	ctx        context.Context
-	requestCtx context.Context
-	cancel     context.CancelFunc
-	provider   Provider
-	title      string
-	multi      bool
-	page       int
-	requestID  int
-	choices    []Choice
-	hasMore    bool
-	selected   map[string]Choice
-	order      []string
-	cursor     int
-	query      string
-	draft      string
-	editing    bool
-	review     bool
-	loading    bool
-	finished   bool
-	cancelled  bool
-	err        error
-	message    string
-	width      int
-	height     int
+	ctx         context.Context
+	requestCtx  context.Context
+	cancel      context.CancelFunc
+	provider    Provider
+	title       string
+	multi       bool
+	page        int
+	requestID   int
+	choices     []Choice
+	hasMore     bool
+	selected    map[string]Choice
+	order       []string
+	cursor      int
+	query       string
+	draft       string
+	editing     bool
+	review      bool
+	loading     bool
+	finished    bool
+	cancelled   bool
+	err         error
+	message     string
+	width       int
+	height      int
+	emphasis    func(string) string
+	style       func(output.Style, string) string
+	formatHints func(int, string, string, string) string
 }
 
-// Select 运行诊断流上的独立选择界面，Space 明确勾选，Enter 才确认。
-// 默认无选择；搜索与翻页保留已选项，取消关闭在途请求并恢复终端，最多 100 个目标。
+// Select 运行诊断流上的独立资源界面，单选 Enter 接受焦点，多选 Space 后确认。
+// 默认不产生业务目标；搜索翻页保留多选项，取消清理请求并恢复终端，最多 100 个目标。
 func Select(ctx context.Context, input io.Reader, diagnostic io.Writer, title string, multi bool, provider Provider) ([]Choice, error) {
+	return SelectStyled(ctx, input, diagnostic, title, multi, provider, "auto")
+}
+
+// SelectStyled 按诊断流的颜色策略运行选择器，业务目标仍由稳定 ID 返回。
+// 退出先取消所有查询并等待响应取消的 provider 结束，再交还终端；调用方负责能力判定。
+func SelectStyled(ctx context.Context, input io.Reader, diagnostic io.Writer, title string, multi bool, provider Provider, color string) ([]Choice, error) {
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	var tasks sync.WaitGroup
+	var guard sync.Mutex
+	closed := false
+	wrapped := func(request context.Context, page int, search string) (Page, error) {
+		guard.Lock()
+		if closed {
+			guard.Unlock()
+			return Page{}, context.Canceled
+		}
+		tasks.Add(1)
+		guard.Unlock()
+		defer tasks.Done()
+		return provider(request, page, search)
+	}
+	defer func() {
+		guard.Lock()
+		closed = true
+		cancel()
+		guard.Unlock()
+		tasks.Wait()
+	}()
 	requestCtx, requestCancel := context.WithCancel(ctx)
 	initial := model{
 		ctx:        ctx,
 		requestCtx: requestCtx,
 		cancel:     requestCancel,
-		provider:   provider,
-		title:      title,
-		multi:      multi,
-		page:       1,
-		requestID:  1,
-		selected:   map[string]Choice{},
-		loading:    true,
-		width:      80,
-		height:     24,
+		provider:   wrapped,
+		emphasis: func(value string) string {
+			return output.Emphasis(diagnostic, color, value)
+		},
+		style: func(role output.Style, value string) string {
+			return output.StyleText(diagnostic, color, role, value)
+		},
+		formatHints: func(width int, primary, secondary, back string) string {
+			return output.FormatKeyHints(diagnostic, color, width, primary, secondary, back)
+		},
+		title:     title,
+		multi:     multi,
+		page:      1,
+		requestID: 1,
+		selected:  map[string]Choice{},
+		loading:   true,
+		width:     80,
+		height:    24,
 	}
 	program := tea.NewProgram(initial, tea.WithContext(ctx), tea.WithInput(input), tea.WithOutput(diagnostic), tea.WithAltScreen(), tea.WithoutSignalHandler())
 	result, err := program.Run()
@@ -191,6 +232,10 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				if len(runes) > 0 {
 					m.draft = string(runes[:len(runes)-1])
 				}
+			case " ":
+				if len(m.draft) < 256 {
+					m.draft += " "
+				}
 			default:
 				if value.Type == tea.KeyRunes && len(m.draft) < 256 {
 					m.draft += string(value.Runes)
@@ -259,6 +304,11 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				m.message = "At most 100 targets can be selected."
 			}
 		case "enter":
+			if !m.multi && m.cursor < len(choices) {
+				choice := choices[m.cursor]
+				m.selected = map[string]Choice{choice.ID: choice}
+				m.order = []string{choice.ID}
+			}
 			if len(m.selected) == 0 {
 				m.message = "Select at least one item with Space."
 			} else {
@@ -274,58 +324,95 @@ func (m model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 // View 渲染有限可见行，远端标题只作为普通数据展示。
 // 窄终端按显示宽度截断，最终提交前另有完整目标预览。
 func (m model) View() string {
-	lines := []string{safe(m.title), fmt.Sprintf("Page %d · Selected %d · Search: %s", m.page, len(m.selected), safe(m.query))}
+	width := max(1, min(104, m.width-4))
+	paint := func(role output.Style, value string) string {
+		if m.style != nil {
+			return m.style(role, value)
+		}
+		return value
+	}
+	status := fmt.Sprintf("Page %d · Selected %d · Search: %s", m.page, len(m.selected), safe(m.query))
+	if !m.multi {
+		status = fmt.Sprintf("Page %d · Search: %s", m.page, safe(m.query))
+	}
+	lines := []string{paint(output.StyleTitle, output.Truncate(m.title, width)), paint(output.StyleDescription, output.Truncate(status, width)), ""}
 	if m.editing {
-		lines = append(lines, "Search candidates: "+safe(m.draft)+"_")
+		lines = append(lines, paint(output.StyleLabel, output.Truncate("Search candidates: "+safe(m.draft)+"▏", width)))
 	}
 	if m.loading {
-		lines = append(lines, "Loading...")
+		lines = append(lines, paint(output.StyleSection, "Loading..."))
 	} else if m.err != nil {
-		lines = append(lines, "Unable to load candidates. Press r to retry or Esc to cancel.")
+		lines = append(lines, paint(output.StyleError, "Unable to load candidates."), paint(output.StyleDescription, output.Truncate("Press r to retry or Esc to return.", width)))
 	} else {
 		values := m.visible()
-		height := m.height - 8
-		if height < 1 {
-			height = 1
-		}
-		start := 0
-		if m.cursor >= height {
-			start = m.cursor - height + 1
-		}
-		end := start + height
-		if end > len(values) {
-			end = len(values)
-		}
-		for index := start; index < end; index++ {
-			choice := values[index]
-			pointer, checked := " ", " "
+		available := max(1, m.height-len(lines)-4)
+		rowSize := navigationRows(available)
+		visible := max(1, available/rowSize)
+		start := max(0, m.cursor-visible+1)
+		for index := start; index < min(len(values), start+visible); index++ {
+			pointer := "  "
 			if index == m.cursor {
-				pointer = ">"
+				pointer = "> "
 			}
-			if _, ok := m.selected[choice.ID]; ok {
-				checked = "x"
+			if m.multi {
+				mark := " "
+				if _, exists := m.selected[values[index].ID]; exists {
+					mark = "x"
+				}
+				pointer += "[" + mark + "] "
 			}
-			width := m.width - 8
-			if width < 10 {
-				width = 10
-			}
-			lines = append(lines, fmt.Sprintf("%s [%s] %s", pointer, checked, runewidth.Truncate(safe(choice.Label), width, "…")))
+			lines = append(lines, choiceRows(values[index], pointer, width, rowSize, m.style)...)
 		}
 		if len(values) == 0 {
 			lines = append(lines, "No items match this query.")
 		}
 	}
-	lines = append(lines, "↑↓ Move · Space Select · / Search · n/p Page · s Selected · Enter Continue · Esc Cancel", m.message)
+	primary, secondary, back := "Enter Choose", "↑↓ Move · / Search · n/p Page", "Esc Back"
+	if m.multi {
+		primary, secondary, back = "Space Select · Enter Continue", "↑↓ Move · / Search · n/p Page · s Selected", "Esc Cancel"
+	}
+	if m.message != "" {
+		lines = append(lines, paint(output.StyleWarning, output.Truncate(m.message, width)))
+	}
+	hints := keyHintText(width, primary, secondary, back)
+	if m.formatHints != nil {
+		hints = m.formatHints(width, primary, secondary, back)
+	}
+	for len(lines) < max(1, m.height-3) {
+		lines = append(lines, "")
+	}
+	lines = append(lines, "", hints)
+	for index := range lines {
+		lines[index] = "  " + lines[index]
+	}
 	return strings.Join(lines, "\n") + "\n"
+}
+
+// styledChoiceLine 为本地动作 ID 应用稳定语义色，远端 label 始终只作为普通文本。
+// 高级选项统一使用紫色；焦点箭头另用主操作色，不将选择状态覆盖成另一颜色。
+func styledChoiceLine(style func(output.Style, string) string, choice Choice, line string) string {
+	pointer := "  "
+	rest := line
+	if strings.HasPrefix(line, ">") {
+		pointer = "> "
+		rest = strings.TrimPrefix(line, ">")
+		rest = strings.TrimPrefix(rest, " ")
+	}
+	role := choice.Role
+	if choice.ID == "@options" {
+		role = output.StyleOption
+	}
+	if role != "" {
+		rest = style(role, rest)
+	}
+	if strings.TrimSpace(pointer) != "" {
+		pointer = style(output.StylePrimary, pointer)
+	}
+	return pointer + rest
 }
 
 // safe 去除远端数据中的控制符，防止 ANSI／OSC 或换行改变界面结构。
 // Unicode 普通文字保持原文，显示宽度由渲染层另行计算。
 func safe(value string) string {
-	return strings.Map(func(character rune) rune {
-		if unicode.IsControl(character) {
-			return ' '
-		}
-		return character
-	}, value)
+	return output.SingleLine(value)
 }

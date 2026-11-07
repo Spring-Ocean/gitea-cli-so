@@ -11,6 +11,7 @@ import (
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/git"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/output"
+	"github.com/Spring-Ocean/gitea-cli-so/internal/tui"
 )
 
 // Execute 为进程创建命令树、连接 I/O 并映射错误退出状态。
@@ -58,7 +59,14 @@ func Execute(ctx context.Context, args []string, input io.Reader, out, diagnosti
 // renderer 绑定当前命令的独立输出流与显式环境 token 脱敏。
 // 不读取系统密钥库，也不将环境凭证写入应用上下文。
 func renderer(command *cobra.Command) output.Renderer {
+	color, _ := command.Root().PersistentFlags().GetString("color")
+	machine, _ := command.Root().PersistentFlags().GetBool("json")
+	_, inSession := command.ErrOrStderr().(*tui.Session)
+	if machine || inSession || command.Annotations["sotea.raw"] == "true" {
+		color = "never"
+	}
 	return output.Renderer{
+		Color:      color,
 		Out:        command.OutOrStdout(),
 		Diagnostic: command.ErrOrStderr(),
 		Redactor:   output.NewRedactor(os.Getenv("SOTEA_TOKEN")),

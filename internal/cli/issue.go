@@ -12,7 +12,6 @@ import (
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app/issue"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app/repository"
-	"github.com/Spring-Ocean/gitea-cli-so/internal/output"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/tui"
 	"github.com/spf13/cobra"
 )
@@ -266,29 +265,18 @@ func (r *runtime) runIssueWrite(command *cobra.Command, operation string, args [
 		request.Changes.Title = &value
 	}
 	if operation == "issue.edit" && !command.Flags().Changed("title") && !fields.changed(command) {
-		field, err := r.ask(command, "Field to edit (title/body/milestone/assignees/labels)")
+		if err := r.editFlags(command); err != nil {
+			return err
+		}
+		if !fields.changed(command) && !command.Flags().Changed("title") {
+			return noChanges(command)
+		}
+		numbers := request.Numbers
+		request, err = fields.request(command, operation)
 		if err != nil {
 			return err
 		}
-		value, err := r.ask(command, "New value (use clear options to remove a value)")
-		if err != nil {
-			return err
-		}
-		switch field {
-		case "title":
-			request.Changes.Title = &value
-		case "body":
-			request.Changes.Body = &value
-		case "milestone":
-			request.MilestoneRef = value
-		case "assignees":
-			values := splitValues(value)
-			request.Changes.Assignees = &values
-		case "labels":
-			request.LabelRefs = splitValues(value)
-		default:
-			return app.Wrap(app.InvalidArgument, "Choose one supported field to edit.", nil)
-		}
+		request.Numbers = numbers
 	}
 	if operation == "issue.comment.add" && request.Changes.Body == nil {
 		value, err := r.ask(command, "Comment body")
@@ -312,16 +300,7 @@ func (r *runtime) runIssueWrite(command *cobra.Command, operation string, args [
 	if err != nil {
 		return err
 	}
-	preview := output.Renderer{
-		Out:        command.ErrOrStderr(),
-		Diagnostic: command.ErrOrStderr(),
-		Redactor:   r.options.redactor,
-	}
-	if err := preview.Text(app.NewResult(plan.Preview().Context, []app.Item{{
-		Target: "preview",
-		Status: app.Success,
-		Data:   plan.Preview(),
-	}}, nil)); err != nil {
+	if err := r.businessPreview(command, plan.Preview().Context, plan.Preview()); err != nil {
 		return err
 	}
 	if err := r.confirm(command, "Apply this exact Issue operation", r.options.yes); err != nil {
@@ -349,7 +328,7 @@ func (r *runtime) issueNumbers(command *cobra.Command, service issue.Service, ar
 		if !r.interactive(command) {
 			return nil, app.Wrap(app.InvalidArgument, "Provide an issue number; selection is disabled without an interactive terminal.", nil)
 		}
-		choices, err := tui.Select(command.Context(), command.InOrStdin(), command.ErrOrStderr(), "Select issues · "+service.Target.Repository, multi, func(ctx context.Context, page int, search string) (tui.Page, error) {
+		choices, err := r.selectChoices(command, "Select issues · "+service.Target.Repository, multi, func(ctx context.Context, page int, search string) (tui.Page, error) {
 			result, err := service.List(ctx, issue.Filter{
 				State:  state,
 				Search: search,
