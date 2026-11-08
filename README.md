@@ -1,5 +1,17 @@
 # sotea
 
+[![Status: Pre-release](https://img.shields.io/badge/Status-Pre--release-orange?style=flat-square)](docs/compatibility.md#发布状态与问题反馈)
+[![Go: 1.27.3](https://img.shields.io/badge/Go-1.27.3-00ADD8?style=flat-square&logo=go&logoColor=white)](go.mod)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![CLI and TUI](https://img.shields.io/badge/Interface-CLI%20%2B%20TUI-4B5563?style=flat-square)](docs/usage.md)
+[![MCP: stdio](https://img.shields.io/badge/MCP-stdio-8B5CF6?style=flat-square)](docs/mcp.md)
+
+[![Target: macOS 15+](https://img.shields.io/badge/Target-macOS%2015%2B-555555?style=flat-square&logo=apple&logoColor=white)](docs/compatibility.md#平台)
+[![Target: Windows 10 / 11](https://img.shields.io/badge/Target-Windows%2010%20%2F%2011-0078D4?style=flat-square)](docs/compatibility.md#平台)
+[![Git: 2.43+](https://img.shields.io/badge/Git-2.43%2B-F05032?style=flat-square&logo=git&logoColor=white)](docs/configuration.md#git-凭证的匹配范围)
+[![Gitea: 7 versions tested](https://img.shields.io/badge/Gitea-7%20versions%20tested-609926?style=flat-square&logo=gitea&logoColor=white)](docs/compatibility.md#gitea)
+[![Docs: 简体中文](https://img.shields.io/badge/Docs-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-blue?style=flat-square)](docs/README.md)
+
 面向自部署 Gitea 的命令行工具。用同一个 Go 可执行程序，通过命令行、交互菜单或本地 MCP 服务处理仓库、Issue、Pull Request 和 Release。
 
 ## 能做什么
