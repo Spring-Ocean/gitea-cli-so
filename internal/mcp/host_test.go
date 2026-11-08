@@ -517,8 +517,25 @@ func TestRawFileSealAndScopeFailBeforeSending(t *testing.T) {
 	}
 }
 
+// assertSameDirectory 按目录实体核对路径，不把平台分隔符差异视为不同仓库。
+// 两条路径都必须可访问且为目录；真实跨根结果仍失败，并报告原始路径便于诊断。
+func assertSameDirectory(t *testing.T, actual, expected string) {
+	t.Helper()
+	actualInfo, err := os.Stat(actual)
+	if err != nil {
+		t.Fatalf("read returned directory %q: %v", actual, err)
+	}
+	expectedInfo, err := os.Stat(expected)
+	if err != nil {
+		t.Fatalf("read expected directory %q: %v", expected, err)
+	}
+	if !actualInfo.IsDir() || !expectedInfo.IsDir() || !os.SameFile(actualInfo, expectedInfo) {
+		t.Fatalf("returned directory %q does not identify expected directory %q", actual, expected)
+	}
+}
+
 // TestGitContextUsesFixedReadQueries 保护授权本地仓库读取和禁用 fsmonitor 的契约。
-// 只用临时仓库；有 Git 即执行，真实 Windows 路径验收仍单独记录。
+// 使用真实临时目录实体核对根，避免将平台路径分隔符差异误判为越界。
 func TestGitContextUsesFixedReadQueries(t *testing.T) {
 	root := t.TempDir()
 	command := exec.Command("git", "-C", root, "init", "--quiet")
@@ -532,11 +549,15 @@ func TestGitContextUsesFixedReadQueries(t *testing.T) {
 	}
 	_, _, client := newProtocolFixture(t, Options{Defaults: target.Input{Workdir: root}})
 	result := callProtocolTool(t, client, "git_context", nil)
-	data := result.Items[0].Data.(map[string]any)
-	actual, err := filepath.EvalSymlinks(root)
-	if err != nil || data["root"] != actual {
-		t.Fatal("fixed Git query returned a different root")
+	if result.ExitCode() != 0 || len(result.Items) != 1 {
+		t.Fatalf("fixed Git query failed: %+v", result)
 	}
+	data := result.Items[0].Data.(map[string]any)
+	actual, ok := data["root"].(string)
+	if !ok {
+		t.Fatalf("fixed Git query did not return a root path: %+v", data)
+	}
+	assertSameDirectory(t, actual, root)
 	if _, err := os.Stat(marker); !os.IsNotExist(err) {
 		t.Fatal("Git context executed a configured fsmonitor")
 	}

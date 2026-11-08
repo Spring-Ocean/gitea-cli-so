@@ -73,7 +73,7 @@ func connectWorkspaceClient(t *testing.T, host *Host, root string) *sdk.ClientSe
 }
 
 // TestWorkspaceSessionsAndPlansAreIsolated 保护两项目会话隔离和跨根写计划禁止复用。
-// 真实 Git 查询验证当前根；写计划检查不得因工具参数、其他会话或切回旧目录而恢复。
+// 真实 Git 查询按目录实体验证当前根；写计划不得因工具参数、其他会话或切回旧目录而恢复。
 func TestWorkspaceSessionsAndPlansAreIsolated(t *testing.T) {
 	rootA, rootB := workspaceRepository(t), workspaceRepository(t)
 	fixture, host, clientA := newProtocolFixture(t, Options{FollowWorkspace: true, AllowWrite: true}, &sdk.Root{URI: workspaceURI(rootA)})
@@ -93,9 +93,10 @@ func TestWorkspaceSessionsAndPlansAreIsolated(t *testing.T) {
 		var data struct {
 			Root string `json:"root"`
 		}
-		if err := json.Unmarshal(encoded, &data); err != nil || data.Root != sample.root {
-			t.Fatalf("workspace crossed sessions: %s %v", data.Root, err)
+		if err := json.Unmarshal(encoded, &data); err != nil {
+			t.Fatalf("decode workspace Git context: %v", err)
 		}
+		assertSameDirectory(t, data.Root, sample.root)
 	}
 	outside := callProtocolTool(t, clientA, "git_context", map[string]any{"workdir": rootB})
 	if outside.Error == nil || outside.Error.Code != app.PathOutsideRoot {
