@@ -10,6 +10,7 @@
 | [MCP 接入](mcp.md) | 四客户端配置向导、工作区跟随、权限、连接检查和恢复。 |
 | [兼容性与验证状态](compatibility.md) | 目标系统、Gitea 版本及已验证范围。 |
 | [Windows 验证](windows-validation.md) | Windows 10／11 基础检查、随候选包提供的脚本及手工验收。 |
+| [GitHub 持续集成](ci.md) | push／PR 检查、目标构建、文档变更跳过规则及本地复现。 |
 
 文中的 `https://gitea.example.com`、`team`、`owner/repository` 和编号均为示例，请替换为自己的实例、账号和目标。写操作会修改远端资源，默认要求预览确认。
 

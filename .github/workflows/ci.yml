@@ -1,0 +1,193 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOTOOLCHAIN: local
+  GOFLAGS: -mod=readonly
+  GIT_TERMINAL_PROMPT: '0'
+  SOTEA_TEST_SYSTEM_VAULT: '0'
+
+jobs:
+  scope:
+    name: Change scope
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.changes.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Detect documentation-only changes
+        id: changes
+        shell: python
+        run: |
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+
+          event = json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())
+          event_name = os.environ['GITHUB_EVENT_NAME']
+          base = 'HEAD^1' if event_name == 'pull_request' else event.get('before', '')
+          documentation_suffixes = {'.md', '.png', '.jpg', '.jpeg', '.svg', '.webp', '.gif'}
+          code = True
+          if event_name != 'workflow_dispatch' and base and set(base) != {'0'}:
+              exists = subprocess.run(
+                  ['git', 'cat-file', '-e', base + '^{commit}'],
+                  stdout=subprocess.DEVNULL,
+                  stderr=subprocess.DEVNULL,
+              ).returncode == 0
+              if exists:
+                  subprocess.run(['git', 'diff', '--check', base, 'HEAD'], check=True)
+                  paths = subprocess.check_output(
+                      ['git', 'diff', '--name-only', '--no-renames', '-z', base, 'HEAD'],
+                  ).decode('utf-8', errors='surrogateescape').split('\0')
+                  code = any(
+                      path and not (
+                          path in {'README.md', 'LICENSE'}
+                          or (path.startswith('docs/') and Path(path).suffix.lower() in documentation_suffixes)
+                      )
+                      for path in paths
+                  )
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'code={str(code).lower()}\n')
+          print('Run code checks.' if code else 'Documentation-only changes; Go checks are not required.')
+
+  checks:
+    name: Format, dependencies, vet and race
+    needs: scope
+    if: needs.scope.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Check Go formatting
+        shell: bash
+        run: |
+          mapfile -d '' files < <(git ls-files -z '*.go')
+          unformatted=$(gofmt -l "${files[@]}")
+          if [[ -n "$unformatted" ]]; then
+            printf 'Run gofmt on these files:\n%s\n' "$unformatted"
+            exit 1
+          fi
+      - name: Verify locked dependencies
+        run: |
+          go mod download
+          go mod verify
+          git diff --exit-code -- go.mod go.sum
+      - name: Lint GitHub workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      - name: Go vet
+        run: go vet ./...
+      - name: Tests with race detection
+        run: go test -race -count=1 -timeout=5m ./...
+
+  native:
+    name: Test and build (${{ matrix.target }})
+    needs: scope
+    if: needs.scope.outputs.code == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: darwin-arm64
+            binary: sotea
+          - runner: macos-15-intel
+            target: darwin-amd64
+            binary: sotea
+          - runner: windows-2025
+            target: windows-amd64
+            binary: sotea.exe
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    env:
+      BUILD_TARGET: ${{ matrix.target }}
+      BINARY_NAME: ${{ matrix.binary }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Verify native toolchain
+        run: |
+          go version
+          git --version
+          test "$(go env GOOS)-$(go env GOARCH)" = "$BUILD_TARGET"
+      - name: Native tests
+        run: go test -count=1 -timeout=5m ./...
+      - name: Build and check executable
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          binary="dist/ci/$BUILD_TARGET/$BINARY_NAME"
+          mkdir -p "$(dirname "$binary")"
+          go build -trimpath -buildvcs=false -ldflags "-X main.version=ci-${GITHUB_SHA::12}" -o "$binary" ./cmd/sotea
+          "$binary" version --json
+          "$binary" --help > /dev/null
+          git diff --exit-code -- go.mod go.sum
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: matrix.target == 'darwin-arm64'
+        with:
+          python-version: '3.13'
+      - name: Interactive workspace smoke
+        if: matrix.target == 'darwin-arm64'
+        run: python3 scripts/p5-terminal-smoke.py --binary "dist/ci/$BUILD_TARGET/$BINARY_NAME"
+      - name: MCP integration and workspace smoke
+        if: matrix.target == 'darwin-arm64'
+        run: |
+          python3 scripts/p6-integration-setup-smoke.py \
+            --binary "dist/ci/$BUILD_TARGET/$BINARY_NAME" \
+            --clients Codex --scopes project --follow \
+            --result dist/ci/mcp-integration-result.json
+
+  result:
+    name: CI result
+    needs: [scope, checks, native]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      SCOPE_RESULT: ${{ needs.scope.result }}
+      CODE_CHANGED: ${{ needs.scope.outputs.code }}
+      CHECKS_RESULT: ${{ needs.checks.result }}
+      NATIVE_RESULT: ${{ needs.native.result }}
+    steps:
+      - name: Require all applicable checks
+        shell: bash
+        run: |
+          test "$SCOPE_RESULT" = success
+          if [[ "$CODE_CHANGED" == true ]]; then
+            test "$CHECKS_RESULT" = success
+            test "$NATIVE_RESULT" = success
+          else
+            test "$CODE_CHANGED" = false
+            test "$CHECKS_RESULT" = skipped
+            test "$NATIVE_RESULT" = skipped
+          fi
+          echo 'All required CI checks passed.'
