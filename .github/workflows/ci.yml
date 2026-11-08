@@ -146,8 +146,9 @@ jobs:
           CGO_ENABLED: '0'
         run: |
           binary="dist/ci/$BUILD_TARGET/$BINARY_NAME"
+          version="$(tr -d '\r\n' < cmd/sotea/VERSION)+ci.${GITHUB_SHA::12}"
           mkdir -p "$(dirname "$binary")"
-          go build -trimpath -buildvcs=false -ldflags "-X main.version=ci-${GITHUB_SHA::12}" -o "$binary" ./cmd/sotea
+          go build -trimpath -buildvcs=false -ldflags "-X main.version=$version" -o "$binary" ./cmd/sotea
           "$binary" version --json
           "$binary" --help > /dev/null
           git diff --exit-code -- go.mod go.sum

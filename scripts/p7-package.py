@@ -135,7 +135,7 @@ def signature_status(artifact):
 def main():
     """验证构建来源后打包，并生成摘要与独立交付清单。
 
-    打包公开 docs/ 使用文档，清单写入本地 devdocs；不把内部设计资料加入交付包。
+    核对包括 VERSION 在内的构建输入，打包公开 docs/，清单写入 devdocs；不打包内部设计资料。
     """
     parser = argparse.ArgumentParser(description="Package the existing P7 candidate without rebuilding it.")
     parser.add_argument("--build", type=Path, default=ROOT / "dist/p7/build-info.json")
@@ -151,7 +151,7 @@ def main():
     if build["go"] != "go1.27.3" or subprocess.check_output(["go", "env", "GOVERSION"], text=True).strip() != build["go"]:
         raise RuntimeError("Packaging requires the candidate Go 1.27.3 toolchain.")
     current = {str(path.relative_to(ROOT)): digest(path.read_bytes()) for path in
-               [ROOT / "go.mod", ROOT / "go.sum", *(ROOT / "cmd").rglob("*.go"), *(ROOT / "internal").rglob("*.go")]}
+               [ROOT / "go.mod", ROOT / "go.sum", ROOT / "cmd/sotea/VERSION", *(ROOT / "cmd").rglob("*.go"), *(ROOT / "internal").rglob("*.go")]}
     if current != build["source_sha256"]:
         raise RuntimeError("Source files no longer match the candidate build.")
     for artifact in build["artifacts"]:

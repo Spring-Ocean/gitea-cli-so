@@ -26,7 +26,7 @@ Go 版本来自 `go.mod`，当前锁定为 **1.27.3**。`GOTOOLCHAIN=local` 禁�
 - Actions 固定到完整提交 SHA，工作流只授予 `contents: read`；checkout 不保留 Git 凭证，PR 使用 `pull_request` 事件。
 - 普通 push 不启动七版本 Gitea 矩阵。API 兼容变化按影响版本执行隔离集成验证，发布前仍需完成七版本验收，入口见 [集成验证说明](../tests/integration/README.md)。
 - Windows Server runner 的测试不能替代 Windows 10／11 实机验收；macOS 托管 runner 也不能替代 Terminal／iTerm2、系统凭证及四类 AI 客户端完整 UI 验收。
-- 此工作流执行持续集成和开发构建验证；构建版本为 `ci-<commit>`，不创建 GitHub Release、不签名或发布安装包。正式交付仍按[兼容性与发布状态](compatibility.md)中的验收边界执行。
+- 此工作流执行持续集成和开发构建验证；版本取自 [VERSION](../cmd/sotea/VERSION)，当前 CI 构建显示 `v0.1.0-rc.1+ci.<commit>`，不创建 GitHub Release、不签名或发布安装包。正式交付仍按[兼容性与发布状态](compatibility.md)中的验收边界执行。
 
 ## 本地复现
 
@@ -57,3 +57,11 @@ python3 scripts/p6-integration-setup-smoke.py \
 ```
 
 这些脚本使用独立配置，不修改本机真实客户端接入项。托管 CI 是否通过，以该提交在 GitHub Actions 中的实际运行结果为准。
+
+生成当前候选的三个目标构建及来源摘要时，指定独立目录保留旧候选：
+
+```sh
+python3 scripts/check.py --phase p7 --output dist/v0.1.0-rc.1
+```
+
+P7 使用 VERSION 中的完整版本，其他开发阶段附加 `+dev.<commit>`。`--build-only` 只构建，并将测试和 vet 记录为未执行。来源摘要包含 VERSION，打包时也会核对，避免版本变更后沿用旧构建证据。

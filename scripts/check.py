@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """运行指定工具链的阶段检查并构建候选平台产物。
 
-构建记录位于受忽略的 dist/<phase>；交叉编译不等于目标系统运行验收。
+构建记录默认位于受忽略的 dist/<phase>，可指定独立目录保留旧候选；交叉编译不等于运行验收。
 """
 
 import argparse
@@ -27,13 +27,17 @@ def run(args, environment):
 def main():
     """默认执行测试、静态检查和三个候选平台构建。
 
-    build-only 仅构建并在记录中标明检查未执行，不复用过时测试结论。
+    build-only 标明检查未执行；版本来自嵌入文件，output 可隔离新候选而不覆盖旧证据。
     """
     parser = argparse.ArgumentParser(description="Check and build sotea development artifacts.")
     parser.add_argument("--build-only", action="store_true", help="Build without rerunning tests or vet")
     parser.add_argument("--phase", choices=("p1", "p2", "p3", "p4", "p5", "p6", "p6-integrations", "p6-workspace", "p7"), default="p1", help="Choose the development artifact directory")
+    parser.add_argument("--output", type=Path, help="Use a separate artifact directory inside the workspace")
     args = parser.parse_args()
-    output = ROOT / "dist" / args.phase
+    output = (ROOT / args.output).resolve() if args.output is not None else ROOT / "dist" / args.phase
+    if not output.is_relative_to(ROOT):
+        parser.error("The artifact directory must be inside the workspace.")
+    source_version = (ROOT / "cmd/sotea/VERSION").read_text().strip()
     environment = dict(os.environ, GOTOOLCHAIN="go1.27.3")
     version = subprocess.check_output(["go", "env", "GOVERSION"], cwd=ROOT, env=environment, text=True).strip()
     if version != "go1.27.3":
@@ -46,7 +50,7 @@ def main():
         checks["go_vet"] = "passed"
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())
-    build_version = f"p7-{revision[:7]}" if args.phase == "p7" else f"dev-{revision[:7]}"
+    build_version = source_version if args.phase == "p7" else f"{source_version}+dev.{revision[:7]}"
     build_options = ["-trimpath"]
     if args.phase == "p7":
         build_options.append("-buildvcs=false")
@@ -61,13 +65,13 @@ def main():
         artifacts.append({"os": system, "arch": arch, "path": str(target.relative_to(ROOT)),
                           "sha256": hashlib.sha256(target.read_bytes()).hexdigest(), "runtime_status": "not_tested"})
         print(f"Built {system}/{arch}.", flush=True)
-    sources = [ROOT / "go.mod", ROOT / "go.sum", *(ROOT / "cmd").rglob("*.go"), *(ROOT / "internal").rglob("*.go")]
+    sources = [ROOT / "go.mod", ROOT / "go.sum", ROOT / "cmd/sotea/VERSION", *(ROOT / "cmd").rglob("*.go"), *(ROOT / "internal").rglob("*.go")]
     record = {"schema_version": 1, "time_utc": datetime.now(timezone.utc).isoformat(), "go": version,
               "commit": revision, "version": build_version, "build_options": [*build_options, "CGO_ENABLED=0"], "worktree_dirty": dirty, "checks": checks, "artifacts": artifacts,
               "source_sha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(sources)}}
     output.mkdir(parents=True, exist_ok=True)
     (output / "build-info.json").write_text(json.dumps(record, indent=2) + "\n")
-    print(f"Build metadata: dist/{args.phase}/build-info.json. Target-system runtime checks are still required.")
+    print(f"Build metadata: {output.relative_to(ROOT)}/build-info.json. Target-system runtime checks are still required.")
 
 
 if __name__ == "__main__":
