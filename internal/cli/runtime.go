@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app/session"
@@ -20,6 +21,7 @@ import (
 	"github.com/Spring-Ocean/gitea-cli-so/internal/gitea"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/output"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/tui"
+	"github.com/Spring-Ocean/gitea-cli-so/internal/update"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -33,6 +35,12 @@ type runtime struct {
 	session *tui.Session
 	rawOut  io.Writer
 	rawErr  io.Writer
+
+	updateMu        sync.Mutex
+	updateWorkers   sync.WaitGroup
+	updateChecking  bool
+	updateInstalled bool
+	updateResult    update.Result
 }
 
 // printedResultError 标记已经完整输出的业务失败，避免重复 envelope。

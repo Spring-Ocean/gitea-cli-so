@@ -63,6 +63,14 @@ func (r *runtime) menu(command *cobra.Command, version string) error {
 // menuLoop 持续加载上下文并保持根导航，不将动作结果刷入 shell。
 // 不可验证的平台或仓库仅保留修复入口；业务每次仍重新验证身份。
 func (r *runtime) menuLoop(command *cobra.Command, version string) error {
+	previous := command.Context()
+	ctx, cancel := context.WithCancel(previous)
+	command.SetContext(ctx)
+	defer func() {
+		cancel()
+		r.updateWorkers.Wait()
+		command.SetContext(previous)
+	}()
 	return r.menuWorkspace(command, version, false)
 }
 
@@ -100,6 +108,10 @@ func (r *runtime) menuWorkspace(command *cobra.Command, version string, browsed 
 			}
 		}
 		choices := menuChoices(command.Root())
+		r.startHomeUpdateCheck(command.Context(), version)
+		for index := range choices {
+			choices[index] = r.homeUpdateChoice(choices[index])
+		}
 		if browsed {
 			filtered := []tui.Choice{}
 			for _, choice := range choices {
@@ -112,16 +124,16 @@ func (r *runtime) menuWorkspace(command *cobra.Command, version string, browsed 
 		if r.session != nil && !state.ready {
 			filtered := []tui.Choice{}
 			for _, choice := range choices {
-				if choice.ID == "auth" || choice.ID == "instance" || choice.ID == "git" || choice.ID == "version" {
+				if choice.ID == "auth" || choice.ID == "instance" || choice.ID == "git" || choice.ID == "version" || choice.ID == "update" {
 					filtered = append(filtered, choice)
 				}
 			}
 			choices = filtered
-			choices = append(choices, tui.Choice{
+			choices = append([]tui.Choice{{
 				ID:          "@availability",
 				Label:       "Repository unavailable",
 				Description: "Inspect the connection problem and available recovery steps",
-			})
+			}}, choices...)
 		}
 		if !browsed {
 			choices = append([]tui.Choice{{
@@ -182,6 +194,8 @@ func (r *runtime) menuWorkspace(command *cobra.Command, version string, browsed 
 			return err
 		}
 		switch choice {
+		case "update":
+			err = r.updateMenu(command, version)
 		case "@mcp":
 			err = r.mcpIntegrations(command)
 		case "auth":
@@ -395,6 +409,7 @@ func menuChoices(parent *cobra.Command) []tui.Choice {
 			"git":       11,
 			"api":       12,
 			"version":   13,
+			"update":    14,
 		}
 		sort.SliceStable(choices, func(i, j int) bool {
 			left, leftKnown := priority[choices[i].ID]
@@ -429,6 +444,7 @@ func menuLabel(command *cobra.Command) string {
 		"git":       "Git · Run Git in the local repository using literal arguments",
 		"api":       "API · Call a Gitea endpoint with explicit request options",
 		"version":   "Version · Show the installed sotea version",
+		"update":    "Update · Check GitHub Releases and install a verified sotea update",
 	}
 	if command.Parent() == command.Root() {
 		if label := names[command.Name()]; label != "" {

@@ -6,6 +6,8 @@
 
 首页展示实例、仓库及经过 API 验证的用户信息。**Account** 维护账号，**Browse account** 浏览账户仓库、所属组织及组织仓库，**MCP integrations** 配置 AI 客户端。
 
+**Update** 可检查和安装 sotea 自身更新。进入 Home 时每个系统用户五小时内最多后台检查一次 GitHub Releases；新版会高亮提示，确认后自动下载、校验并安装。检查与仓库无关，详情见 [更新说明](updates.md)。
+
 | 操作 | 按键 |
 | --- | --- |
 | 移动、进入、返回 | ↑↓、Enter、Esc |
@@ -29,6 +31,7 @@
 | `release` | 草稿创建、列表、查看、编辑／发布、附件列表及上传。 |
 | `git` | 将参数和三流交给系统 Git，保留 Git 退出码。 |
 | `api` | 对已选实例发送明确的原始 API 请求。 |
+| `update check`、`update install` | 检查 GitHub 发布，或确认后安装并保留旧程序备份。 |
 
 用 `sotea issue --help` 或 `sotea pr merge --help` 查看当前版本参数。
 

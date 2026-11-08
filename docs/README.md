@@ -5,6 +5,7 @@
 | 文档 | 内容 |
 | --- | --- |
 | [安装、升级与卸载](installation.md) | 选择平台、校验压缩包、配置 PATH、替换程序和保留配置。 |
+| [检查与安装更新](updates.md) | Home 五小时提醒、GitHub Releases、自动下载校验安装及备份恢复。 |
 | [配置与认证](configuration.md) | 实例、账号、Git 凭证、token、私有 CA、代理及配置位置。 |
 | [使用指南](usage.md) | 菜单、Issue／PR／Release、Git、通用 API、JSON 与退出码。 |
 | [MCP 接入](mcp.md) | 四客户端配置向导、工作区跟随、权限、连接检查和恢复。 |

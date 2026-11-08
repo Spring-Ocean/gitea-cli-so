@@ -41,7 +41,7 @@ class Terminal:
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack("HHHH", 32, columns, 0, 0))
         self.original = termios.tcgetattr(self.slave)
         self.plain = term == "dumb"
-        environment = dict(os.environ, TERM=term, NO_COLOR="1", SOTEA_TOKEN="synthetic-p5-token",
+        environment = dict(os.environ, TERM=term, NO_COLOR="1", SOTEA_UPDATE_CHECK="never", SOTEA_TOKEN="synthetic-p5-token",
                            SOTEA_TOKEN_INSTANCE="isolated", GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
         for name in ("CI", "SOTEA_INSTANCE", "SOTEA_ACCOUNT", "SOTEA_REPO", "SOTEA_CONFIG"):
             environment.pop(name, None)
@@ -714,7 +714,7 @@ def display_navigation_contract(binary, directory, config):
 def nonrepository_context(binary, config):
     """非仓库启动先显示不可用，再用上下文明确补齐目标。
 
-    会话切换不落盘；切换实例会清除旧仓库，无法沿用旧业务目标。
+    切换实例会清除旧仓库且不落盘；回到已保留焦点的Home时检查固定状态，不依赖屏外选项。
     """
     before = config.read_bytes()
     with tempfile.TemporaryDirectory(prefix="sotea-p5-nonrepo-") as temporary:
@@ -738,7 +738,7 @@ def nonrepository_context(binary, config):
             terminal.choose("Session context", "Instance ·")
             terminal.wait("New instance")
             terminal.send(b"isolated\r")
-            terminal.wait("Repository unavailable")
+            terminal.wait("No repository selected")
             terminal.choose("Home ·", "Quit")
             terminal.close()
             if config.read_bytes() != before:

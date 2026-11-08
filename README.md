@@ -27,6 +27,7 @@ A CLI for self-hosted Gitea. Manage repositories, issues, pull requests, and rel
 | Git 与 API / Git and API | 调用系统 Git，复用经过身份验证的 HTTPS Git 凭证；通过 `sotea api` 调用当前账号有权访问的 Gitea API。<br>Use system Git and verified HTTPS Git credentials. Call Gitea APIs available to the selected account through `sotea api`. |
 | AI 客户端接入 / AI client integrations | 内置 stdio MCP，提供 Codex、Claude Code、Cursor、VS Code 配置向导；支持跟随客户端项目。<br>Built-in stdio MCP with setup wizards for Codex, Claude Code, Cursor, and VS Code, including support for following the client's project. |
 | 自动化 / Automation | 业务命令支持 JSON、明确的退出码和非交互运行；写操作默认预览确认。<br>Business commands provide JSON output, defined exit codes, and non-interactive execution. Writes require a preview and confirmation by default. |
+| 更新 / Updates | Home 每五小时最多后台检查一次 GitHub Releases，新版高亮提示；确认后自动下载、校验和安装，保留旧程序备份。<br>Home checks GitHub Releases in the background at most once every five hours, highlights new versions, and offers confirmed download, verification, and installation with a backup. |
 
 程序界面与提示使用英文；本 README 中英对照，详细文档目前使用中文。仓库中的标题、正文和评论保留原文。
 
@@ -141,6 +142,21 @@ In an interactive terminal, `issue close` without numbers opens a selector. Expl
 完整操作示例、分页、JSON、脚本与退出码见 [使用指南](docs/usage.md)。
 
 See the [usage guide](docs/usage.md) for more examples, pagination, JSON output, scripting, and exit codes.
+
+## 更新 / Updates
+
+Home 会在后台检查 GitHub Releases，每个系统用户五小时内最多自动检查一次，失败也计入冷却。发现新版时高亮提示，进入 **Update** 确认后自动下载、校验、安装并保留旧程序备份。
+
+Home checks GitHub Releases in the background at most once every five hours per system user, including failed attempts. New versions are highlighted. Open **Update** to confirm download, verification, and installation with a backup.
+
+```sh
+sotea update check
+sotea update install
+```
+
+稳定版默认只跟进稳定版，RC 默认包含预发布；可显式使用 `--prerelease`。脚本安装需 `--yes`，安装后重启 sotea 和已运行的 MCP 进程。设置 `SOTEA_UPDATE_CHECK=never` 可关闭自动检查。详情见 [更新说明](docs/updates.md)。
+
+Stable builds follow stable releases; RC builds also include prereleases. Use `--prerelease` to opt in explicitly. Scripted installation requires `--yes`. Restart sotea and running MCP processes afterwards. Set `SOTEA_UPDATE_CHECK=never` to disable automatic checks. See the [update guide](docs/updates.md).
 
 ## 连接 AI 客户端 / Connect AI clients
 

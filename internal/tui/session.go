@@ -80,26 +80,31 @@ type selectorMessage struct {
 
 type headerMessage string
 
+// updateMessage 只携带已经比较过的版本标签，供首页非阻塞刷新。
+// 其他页面保留其导航和输入状态，空标签表示移除更新提示。
+type updateMessage string
+
 type sessionModel struct {
-	session     *Session
-	request     screenRequest
-	header      string
-	width       int
-	height      int
-	cursor      int
-	offset      int
-	groupIndex  int
-	query       string
-	editing     bool
-	input       []rune
-	inputCursor int
-	generation  uint64
-	selector    *model
-	focus       map[string]string
-	cancel      context.CancelFunc
-	emphasis    func(string) string
-	style       func(output.Style, string) string
-	location    string
+	session      *Session
+	request      screenRequest
+	header       string
+	width        int
+	height       int
+	cursor       int
+	offset       int
+	groupIndex   int
+	query        string
+	editing      bool
+	input        []rune
+	inputCursor  int
+	generation   uint64
+	selector     *model
+	focus        map[string]string
+	cancel       context.CancelFunc
+	emphasis     func(string) string
+	style        func(output.Style, string) string
+	location     string
+	updateLatest string
 }
 
 // RunSession 保持唯一全屏和输入所有权，并执行串行页面控制器。
@@ -230,6 +235,12 @@ func (s *Session) trackLines(value []byte) {
 // 调用方负责提供身份状态，会话不从 Git 作者信息猜测 API 账号。
 func (s *Session) Header(value string) {
 	s.program.Send(headerMessage(s.clean(value)))
+}
+
+// UpdateAvailable 异步更新 Home 的版本提醒，不抢占当前输入或页面。
+// value 只能由本地更新服务提供；空值清除提醒，终端控制符在发送前被清理。
+func (s *Session) UpdateAvailable(value string) {
+	s.program.Send(updateMessage(output.SingleLine(s.clean(value))))
 }
 
 // request 将页面交给唯一 UI 循环，等待显式结果或取消。
@@ -420,6 +431,9 @@ func tagged(generation uint64, command tea.Cmd) tea.Cmd {
 // 子模型的退出转换为页面回复，过期异步响应按页面代数丢弃。
 func (m sessionModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch value := message.(type) {
+	case updateMessage:
+		m.updateLatest = string(value)
+		return m, nil
 	case headerMessage:
 		m.header = string(value)
 		return m, nil
@@ -670,17 +684,25 @@ func (m sessionModel) key(key tea.KeyMsg) sessionModel {
 }
 
 // navigation 按名称和稳定路径筛选当前菜单，不改变业务目标。
-// 空集时 Enter 不沿用旧焦点，不选择隐藏项。
+// 空集时 Enter 不沿用旧焦点；Home 更新入口的强调仅改变显示，不改变稳定 ID。
 func (m sessionModel) navigation() []Choice {
 	choices := []Choice{}
+	decorate := func(choice Choice) Choice {
+		if m.request.home != nil && choice.ID == "update" && m.updateLatest != "" {
+			choice.Label = "Update available · " + m.updateLatest
+			choice.Description = "Review and install the verified GitHub release"
+			choice.Role = output.StyleWarning
+		}
+		return choice
+	}
 	for _, choice := range m.request.choices {
 		if m.query != "" && strings.EqualFold(choice.ID, strings.TrimSpace(m.query)) {
-			return []Choice{choice}
+			return []Choice{decorate(choice)}
 		}
 	}
 	for _, choice := range m.request.choices {
 		if strings.Contains(strings.ToLower(choice.Label+" "+choice.Description+" "+choice.ID), strings.ToLower(m.query)) {
-			choices = append(choices, choice)
+			choices = append(choices, decorate(choice))
 		}
 	}
 	return choices

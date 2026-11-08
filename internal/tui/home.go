@@ -43,11 +43,14 @@ func (s *Session) Home(ctx context.Context, info HomeInfo, choices []Choice) (st
 }
 
 // homeView 按当前尺寸安排首页信息卡、动作列表和固定键位说明。
-// 菜单焦点始终可见，未显示的动作通过滚动或搜索进入，不因窄屏丢失动作。
+// 菜单焦点始终可见；后台更新消息仅增加提醒，不重置焦点、搜索或当前选择。
 func (m sessionModel) homeView() string {
 	cardModel := m
 	cardModel.width = m.contentWidth()
 	card := cardModel.homeCard(*m.request.home)
+	if m.updateLatest != "" {
+		card = append(card, "", m.paint(output.StyleWarning, output.Truncate("Update available · "+m.updateLatest+" · Open Update to install", m.contentWidth())))
+	}
 	lines := append(card, "", m.paint(output.StyleTitle, output.Truncate(m.request.title, m.contentWidth())), "")
 	return m.navigationView(lines)
 }

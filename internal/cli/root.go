@@ -135,5 +135,6 @@ func newRootCommand(version string) (*cobra.Command, *runtime) {
 		},
 	})
 	addBusinessCommands(root, r, version)
+	addUpdateCommands(root, r, version)
 	return root, r
 }
