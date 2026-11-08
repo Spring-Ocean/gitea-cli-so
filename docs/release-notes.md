@@ -1,18 +1,28 @@
 ## 版本状态 / Release status
 
-**{{RELEASE_TAG}} 是 sotea 的首个发布候选版本，不是正式稳定版。** 本说明记录已有验证范围；新发布的文件必须单独核验，历史候选结果不会自动转移到新产物。
+**{{RELEASE_TAG}} 是基于 v0.1.0-rc.1 的小型修复预发布版，不是正式稳定版。** 本次重点修复 Codex MCP 配置向导误报配置冲突的问题；保留 rc.1 的标签、附件和历史说明。
 
-**{{RELEASE_TAG}} is the first sotea release candidate, not a stable release.** The validation scope describes existing evidence; newly released artifacts require separate verification, and results from earlier candidates do not automatically apply.
+**{{RELEASE_TAG}} is a small bug-fix prerelease based on v0.1.0-rc.1, not a stable release.** It fixes a false configuration conflict in the Codex MCP setup wizard. The rc.1 tag, assets, and release notes remain unchanged.
 
-## 主要功能 / Highlights
+## 修复内容 / Fixes
 
-- 通过 CLI 和交互工作台管理 Gitea 仓库、Issue、Pull Request、Release 和附件；支持 Git 透传、原始 API 和 JSON 输出。
-- 提供本地 stdio MCP 服务及 Codex、Claude Code、Cursor、VS Code 配置向导；MCP 默认只读，写入需要单独授权和确认。
-- Home 可后台检查 GitHub Releases；也可使用 `sotea update check` 和 `sotea update install` 检查与安装更新。
+- 修复 Codex 配置已有 `[mcp_servers]`、引号父表或点分键时，添加 sotea 因重复定义父表而报 `CONFIG_CONFLICT` 的问题。现在只追加 `[mcp_servers.sotea]`，保留原有服务器、注释和配置内容。
+- 保持旧版向导托管条目和所有权记录兼容，已有接入可继续更新；无需删除正常父表或其他服务器。
+- 真正无法扩展的配置布局继续拒绝写入，错误归类为 `CONFIG_ERROR`，提示检查配置文件，不再误报账号／仓库上下文改变。
 
-- Manage Gitea repositories, issues, pull requests, releases, and assets through the CLI or interactive workspace; Git passthrough, raw API access, and JSON output are available.
-- Use a local stdio MCP server and setup wizards for Codex, Claude Code, Cursor, and VS Code. MCP is read-only by default; writes require separate authorization and confirmation.
-- Home can check GitHub Releases in the background. Use `sotea update check` and `sotea update install` to check for and install updates.
+- Fix false `CONFIG_CONFLICT` errors when an existing Codex configuration defines `[mcp_servers]`, a quoted parent table, or dotted keys. The wizard now appends only `[mcp_servers.sotea]`, preserving other servers, comments, and settings.
+- Preserve compatibility with previously managed entries and ownership records so existing integrations can still be updated. Removing a valid parent table or another server is unnecessary.
+- Continue to reject layouts that cannot safely accept a separate table. These failures now use `CONFIG_ERROR` and configuration guidance instead of reporting an account or repository context change.
+
+## 验证范围 / Validation scope
+
+本次验证覆盖 Go 测试、vet、受影响包 race、三目标构建，以及包含显式父表的 Codex 用户／项目向导安装、连接检查、更新和移除。回归还保护旧托管块升级、原文保留及内联容器拒绝。测试使用隔离目录与合成配置，不写入真实客户端配置或使用真实凭证。
+
+Validation covers Go tests, vet, race checks for affected packages, three-target builds, and Codex user/project wizard installation, connection checks, updates, and removal with an explicit parent table. Regression checks also cover legacy managed entries, preservation of existing content, and rejection of closed inline containers. Tests use isolated directories and synthetic configurations, without modifying real client settings or using real credentials.
+
+未修改 Gitea API 路径、认证或请求／响应契约，本次不重复七版本业务矩阵；已有兼容证据与下方真实平台／客户端待验收项分别保留。
+
+Gitea API paths, authentication, and request/response contracts are unchanged, so this patch does not repeat the seven-version workflow matrix. Existing compatibility evidence and the pending platform/client checks below remain separate.
 
 ## 安装 / Installation
 
@@ -60,9 +70,9 @@ For an existing installation, run `sotea update check` and `sotea update install
 
 An earlier candidate passed representative CLI and MCP workflow regression checks against seven isolated Gitea versions: `28.3.0`, `1.27.3`, `1.26.4`, `1.25.5`, `1.24.7`, `1.23.8`, and `1.22.6`. This does not establish coverage of every endpoint, customized instance, or platform combination.
 
-Codex 和 Claude Code 只有部分真实客户端流程已验证；Cursor、VS Code 的真实工具调用，以及四种客户端完整的批准／取消 UI 仍待验收。首个公开 Release 的下载、首次安装和更新也需要实际验证。Windows Server 或 macOS 托管 runner 的结果不能代替目标桌面系统与终端实测。详见[兼容性与验证状态](https://github.com/Spring-Ocean/gitea-cli-so/blob/{{RELEASE_TAG}}/docs/compatibility.md)。
+Codex 和 Claude Code 只有部分真实客户端流程已验证；Cursor、VS Code 的真实工具调用，以及四种客户端完整的批准／取消 UI 仍待验收。rc.1 的公开下载、macOS arm64 首次安装和更新检查已有实测；本次产物及 rc.1 → rc.2 自动升级需绑定新版本独立复核。Windows Server 或 macOS 托管 runner 的结果不能代替目标桌面系统与终端实测。详见[兼容性与验证状态](https://github.com/Spring-Ocean/gitea-cli-so/blob/{{RELEASE_TAG}}/docs/compatibility.md)。
 
-Only parts of the real Codex and Claude Code client flows have been validated. Real tool calls in Cursor and VS Code, and the complete approval/cancellation UI in all four clients, remain pending. Downloads, first installation, and updates from the first public Release also require verification. Results on hosted Windows Server or macOS runners do not replace testing on the target desktop systems and terminals. See [compatibility and validation status](https://github.com/Spring-Ocean/gitea-cli-so/blob/{{RELEASE_TAG}}/docs/compatibility.md).
+Only parts of the real Codex and Claude Code client flows have been validated. Real tool calls in Cursor and VS Code, and the complete approval/cancellation UI in all four clients, remain pending. Public downloads, first installation, and update checks were tested for rc.1 on macOS arm64; these new artifacts and the rc.1 to rc.2 automatic upgrade require separate verification. Results on hosted Windows Server or macOS runners do not replace testing on the target desktop systems and terminals. See [compatibility and validation status](https://github.com/Spring-Ocean/gitea-cli-so/blob/{{RELEASE_TAG}}/docs/compatibility.md).
 
 ## 已知限制 / Known limitations
 

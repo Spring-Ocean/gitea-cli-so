@@ -250,7 +250,7 @@ func (d document) entryBytes() []byte {
 }
 
 // change 在内存生成替换结果并重新验证完整文档。
-// remove 仅删除 sotea 条目；不删除空的服务器容器或客户端配置文件。
+// remove 仅删除 sotea 条目；无法扩展的布局返回配置错误，不改客户端文件。
 func (d document) change(entry map[string]any, remove bool) ([]byte, error) {
 	encoded, err := encodeEntry(d.client, entry)
 	if err != nil {
@@ -301,7 +301,7 @@ func (d document) change(entry map[string]any, remove bool) ([]byte, error) {
 		next = d.insert(d.root, clientRoot(d.client), value)
 	}
 	if _, err := parseDocument(d.client, next); err != nil {
-		return nil, app.Wrap(app.ConfigConflict, "The configuration layout cannot be safely extended. Use a standard server table or another configuration path.", nil)
+		return nil, app.Wrap(app.ConfigError, "The client configuration layout cannot accept a separate sotea server table. Use an expandable server table or another supported configuration path.", nil)
 	}
 	return next, nil
 }

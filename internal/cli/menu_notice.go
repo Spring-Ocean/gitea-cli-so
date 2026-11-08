@@ -40,6 +40,9 @@ func failureNotice(failure *app.Error) tui.NoticeOptions {
 	case app.ContextRequired, app.ContextAmbiguous:
 		notice.Title = "Choose a repository context"
 		notice.Hint = "Use Context on Home to select an instance and repository, or browse the repositories linked to your account."
+	case app.ConfigError:
+		notice.Title = "Review the configuration"
+		notice.Hint = "Review the reported file and setting. Correct the configuration or choose another supported configuration path before continuing."
 	case app.ConfigConflict, app.Conflict, app.PreconditionChanged:
 		notice.Title = "The selected context changed"
 		notice.Hint = "Return and refresh the selection before continuing. The action will not be repeated automatically."

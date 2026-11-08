@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
+	"github.com/pelletier/go-toml/v2"
 )
 
 // testLaunch 建立只使用测试二进制和临时路径的启动意图。
@@ -55,7 +56,7 @@ func readTestFile(t *testing.T, path string) []byte {
 }
 
 // TestManagedLifecyclePreservesOtherSettings 保护四格式的安装、更新和仅移除自有项。
-// 覆盖注释、尾随逗号、紧凑对象、含 URL 字符串和 TOML 多行内容，检查原设置及私有备份。
+// 覆盖显式 TOML 父表、注释、多行内容及 JSONC，检查原设置、私有备份和完整生命周期。
 func TestManagedLifecyclePreservesOtherSettings(t *testing.T) {
 	for _, sample := range []struct {
 		client Client
@@ -63,6 +64,9 @@ func TestManagedLifecyclePreservesOtherSettings(t *testing.T) {
 		keep   string
 	}{
 		{Codex, "# personal settings\nmodel = 'example'\nnote = '''a\n[mcp_servers.fake]\nb'''\n[mcp_servers.other]\ncommand = 'other'\n", "# personal settings\nmodel = 'example'"},
+		{Codex, "# keep explicit parent\n[mcp_servers]\n# keep existing server\n[mcp_servers.other]\ncommand = 'other'\n", "# keep explicit parent"},
+		{Codex, "[\"mcp_servers\"] # quoted parent\n", "# quoted parent"},
+		{Codex, "mcp_servers.other.command = 'other'\n", "mcp_servers.other.command = 'other'"},
 		{ClaudeCode, "{\"theme\":\"dark\",\"mcpServers\":{\"other\":{\"command\":\"other\"}}}\n", "\"theme\":\"dark\""},
 		{Cursor, "{\n// user comment\n\"mcpServers\": {\"other\": {\"url\": \"https://example.test/a//b/*c*/\"},},\n}\n", "// user comment"},
 		{VSCode, "{\"inputs\":[],\"servers\":{ /* keep this */ }}\n", "/* keep this */"},
@@ -107,6 +111,9 @@ func TestManagedLifecyclePreservesOtherSettings(t *testing.T) {
 				if !strings.Contains(string(current.raw), sample.keep) {
 					t.Fatal("unrelated content or comments were rewritten")
 				}
+				if sample.client == Codex && !bytes.HasPrefix(current.raw, []byte(sample.raw)) {
+					t.Fatal("the original Codex configuration was changed outside the managed block")
+				}
 				if step < 2 && (current.Launch.AllowWrite != launch.AllowWrite || current.Launch.AllowRawAPI != launch.AllowRawAPI || current.Launch.ConfigPath != launch.ConfigPath) {
 					t.Fatalf("launch did not round trip: %+v", current.Launch)
 				}
@@ -115,6 +122,74 @@ func TestManagedLifecyclePreservesOtherSettings(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestCodexInlineContainerIsPreserved 保护无法独立追加子表的内联 MCP 容器。
+// 准备阶段返回配置格式错误且不改原文，不把不支持的布局伪装成并发上下文变化。
+func TestCodexInlineContainerIsPreserved(t *testing.T) {
+	launch := testLaunch(t)
+	path := filepath.Join(t.TempDir(), "config.toml")
+	original := []byte("mcp_servers = { other = { command = 'other' } }\n")
+	writeTestFile(t, path, original)
+	snapshot, err := Load(context.Background(), Codex, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := snapshot.Prepare(launch, false); err == nil || app.Failure(err).Code != app.ConfigError {
+		t.Fatalf("an inline container needs a configuration-format error: %v", err)
+	}
+	if !bytes.Equal(readTestFile(t, path), original) {
+		t.Fatal("an unsupported layout changed the original configuration")
+	}
+}
+
+// TestCodexLegacyManagedBlockCanBeUpdated 保护旧版含空父表的托管块及所有权记录。
+// 新编码仍可识别并更新已有接入，不要求用户删除配置或放弃原有服务器。
+func TestCodexLegacyManagedBlockCanBeUpdated(t *testing.T) {
+	launch := testLaunch(t)
+	entry, err := launch.Entry(Codex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := toml.Marshal(map[string]any{"mcp_servers": map[string]any{"sotea": entry}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	block := append([]byte(blockStart), encoded...)
+	block = append(block, []byte(blockEnd)...)
+	original := []byte("# Preserve the original server\n[mcp_servers.other]\ncommand = 'other'\n")
+	raw := append(bytes.Clone(original), block...)
+	path := filepath.Join(t.TempDir(), "config.toml")
+	writeTestFile(t, path, raw)
+	metadata, err := json.Marshal(ownership{
+		Version: 1,
+		Client:  Codex,
+		Path:    path,
+		Next:    digest(block),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, path+".sotea-mcp.json", metadata)
+	snapshot, err := Load(context.Background(), Codex, path)
+	if err != nil || snapshot.State != "managed" {
+		t.Fatalf("legacy ownership was not recognized: %s %v", snapshot.State, err)
+	}
+	launch.AllowWrite = true
+	change, err := snapshot.Prepare(launch, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := change.Apply(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := Load(context.Background(), Codex, path)
+	if err != nil || updated.State != "managed" || !updated.Launch.AllowWrite {
+		t.Fatalf("legacy integration did not update: %s %v", updated.State, err)
+	}
+	if !bytes.HasPrefix(readTestFile(t, path), original) {
+		t.Fatal("the legacy update changed another server")
 	}
 }
 

@@ -10,11 +10,11 @@ sotea 的一个可执行文件同时提供 CLI、交互菜单和本地 MCP 服�
 | darwin-amd64 | Intel Mac | tar.gz |
 | windows-amd64 | Windows 10 22H2／Windows 11，Intel 或 AMD 64 位 | zip |
 
-支持范围与实际验证状态见 [兼容性说明](compatibility.md)。公开安装包通过仓库 GitHub Releases 的 Assets 分发；首次发布带附件的 Release 后，下列下载命令才可使用。GitHub 自动生成的 Source code 是源码，不是预编译程序。包名包含具体版本、平台，历史内部候选还可能包含打包修订号，请以实际文件为准。
+支持范围与实际验证状态见 [兼容性说明](compatibility.md)。公开安装包通过仓库 GitHub Releases 的 Assets 分发；下载地址以对应版本实际公开的附件为准。GitHub 自动生成的 Source code 是源码，不是预编译程序。包名包含具体版本、平台，历史内部候选还可能包含打包修订号，请以实际文件为准。
 
 ## 脚本首次安装
 
-安装脚本自动选择架构，从固定仓库下载压缩包和 SHA256SUMS，核对 SHA-256 与程序版本，再安装到用户目录。无需管理员权限；不覆盖已有程序，已有安装使用 `sotea update install`。无版本参数时只选择最新稳定版；目前为 RC，必须显式指定 `v0.1.0-rc.1`。没有稳定版时会清晰报错，不悄悄切换到 RC。
+安装脚本自动选择架构，从固定仓库下载压缩包和 SHA256SUMS，核对 SHA-256 与程序版本，再安装到用户目录。无需管理员权限；不覆盖已有程序，已有安装使用 `sotea update install`。无版本参数时只选择最新稳定版；目前为 RC，必须显式指定 `v0.1.0-rc.2`。没有稳定版时会清晰报错，不悄悄切换到 RC。
 
 macOS，在 Terminal／iTerm2 复制整段执行：
 
@@ -24,9 +24,9 @@ macOS，在 Terminal／iTerm2 复制整段执行：
     installer=$(mktemp)
     trap 'rm -f "$installer"' EXIT
     curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
-        https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.1/install.sh \
+        https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.2/install.sh \
         -o "$installer"
-    sh "$installer" --version v0.1.0-rc.1
+    sh "$installer" --version v0.1.0-rc.2
 )
 ```
 
@@ -36,7 +36,7 @@ Windows，在 64 位 Windows PowerShell 5.1 或 PowerShell 中执行：
 
 ```powershell
 & ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri `
-    'https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.1/install.ps1').Content)) -Version v0.1.0-rc.1
+    'https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.2/install.ps1').Content)) -Version v0.1.0-rc.2
 ```
 
 上例在当前 PowerShell 中执行从对应 Release 取得的脚本，不更改系统执行策略。默认安装至 `%LOCALAPPDATA%\Programs\sotea\sotea.exe`，保留用户 PATH 原有项并添加安装目录，同时更新当前窗口 PATH。`-NoModifyPath` 跳过；`-InstallDirectory 'C:\your\directory'` 自定义目录。仅支持 amd64，不承诺 Windows ARM64。

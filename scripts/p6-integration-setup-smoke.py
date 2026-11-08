@@ -82,7 +82,7 @@ def assert_entry(path, client, expected_extra, follow=False):
 def scenario(binary, client, scope, follow=False):
     """完成取消、安装、连接检查、权限更新与定向移除。
 
-    使用不可连接的回环端口，证明没有仓库或在线 Gitea 也能配置并验证本地协议服务。
+    Codex 保留已有显式父表；回环不可连接也能完成配置及本地协议验证。
     """
     with tempfile.TemporaryDirectory(prefix="sotea-mcp-integration-") as temporary:
         directory = Path(temporary)
@@ -95,7 +95,7 @@ def scenario(binary, client, scope, follow=False):
         home.mkdir()
         if client == "Codex":
             path = (home if scope == "user" else directory) / ".codex/config.toml"
-            original = "# Preserve this comment\nmodel = 'fixture'\n[mcp_servers.other]\ncommand = 'fixture-other'\n"
+            original = "# Preserve this comment\nmodel = 'fixture'\n[mcp_servers]\n[mcp_servers.other]\ncommand = 'fixture-other'\n"
         else:
             relative = {"Claude Code": ".mcp.json", "Cursor": ".cursor/mcp.json", "VS Code": ".vscode/mcp.json"}[client]
             path = directory / relative

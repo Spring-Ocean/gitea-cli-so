@@ -1,6 +1,6 @@
 # sotea
 
-[![Version: v0.1.0-rc.1](https://img.shields.io/badge/Version-v0.1.0--rc.1-blue?style=flat-square)](cmd/sotea/VERSION)
+[![Version: v0.1.0-rc.2](https://img.shields.io/badge/Version-v0.1.0--rc.2-blue?style=flat-square)](cmd/sotea/VERSION)
 [![Status: Pre-release](https://img.shields.io/badge/Status-Pre--release-orange?style=flat-square)](docs/compatibility.md#发布状态与问题反馈)
 [![CI](https://github.com/Spring-Ocean/gitea-cli-so/actions/workflows/ci.yml/badge.svg)](https://github.com/Spring-Ocean/gitea-cli-so/actions/workflows/ci.yml)
 [![Release](https://github.com/Spring-Ocean/gitea-cli-so/actions/workflows/release.yml/badge.svg)](https://github.com/Spring-Ocean/gitea-cli-so/actions/workflows/release.yml)
@@ -96,9 +96,9 @@ Choose a client, instance, account, local access mode, and permissions step by s
 
 Install the prebuilt executable for your platform and add it to PATH. Go is not required at runtime. See the [installation guide](docs/installation.md) for installation, upgrades, and removal.
 
-首个带附件的 Release 发布后，可复制以下脚本首次安装当前 RC；自动选择平台、校验 SHA-256，并配置用户 PATH。已有程序不会被覆盖。默认不传版本参数时安装最新稳定版，RC 必须指定版本。
+从对应 GitHub Release 获取安装脚本，可首次安装当前 RC；自动选择平台、校验 SHA-256，并配置用户 PATH。已有程序不会被覆盖。默认不传版本参数时安装最新稳定版，RC 必须指定版本。
 
-Once the first release with assets is published, use the commands below to install this RC. Installers select the platform, verify SHA-256, and configure your user PATH. Existing installations are never overwritten. Without a version argument, installers select the latest stable release; an RC requires an explicit version.
+Use the commands below to install this RC from its GitHub Release assets. Installers select the platform, verify SHA-256, and configure your user PATH. Existing installations are never overwritten. Without a version argument, installers select the latest stable release; an RC requires an explicit version.
 
 **macOS · Terminal / iTerm2**
 
@@ -108,9 +108,9 @@ Once the first release with assets is published, use the commands below to insta
     installer=$(mktemp)
     trap 'rm -f "$installer"' EXIT
     curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
-        https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.1/install.sh \
+        https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.2/install.sh \
         -o "$installer"
-    sh "$installer" --version v0.1.0-rc.1
+    sh "$installer" --version v0.1.0-rc.2
 )
 ```
 
@@ -118,7 +118,7 @@ Once the first release with assets is published, use the commands below to insta
 
 ```powershell
 & ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri `
-    'https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.1/install.ps1').Content)) -Version v0.1.0-rc.1
+    'https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.2/install.ps1').Content)) -Version v0.1.0-rc.2
 ```
 
 也可以手动下载对应平台压缩包和 SHA256SUMS，校验后安装。发布维护流程见 [Release 说明](docs/releases.md)。安装完成后，重新打开终端并执行：
@@ -204,9 +204,9 @@ Access is read-only by default. Business writes and raw API access are enabled s
 
 ## 平台与当前状态 / Platforms and current status
 
-当前版本为 **v0.1.0-rc.1**，即首个发布候选版本。
+当前版本为 **v0.1.0-rc.2**，是修复 Codex MCP 配置写入问题的小型预发布版。
 
-The current version is **v0.1.0-rc.1**, the first release candidate.
+The current version is **v0.1.0-rc.2**, a small prerelease fixing Codex MCP configuration writes.
 
 目标平台为 macOS 15 起的 arm64／amd64，以及 Windows 10 22H2／Windows 11 的 amd64。Git 集成功能基线为 Git 2.43。
 
@@ -214,9 +214,9 @@ Target platforms are macOS 15 and later on arm64 and amd64, plus Windows 10 22H2
 
 **Gitea 支持版本 / Supported Gitea versions:** `28.3.0` · `1.27.3` · `1.26.4` · `1.25.5` · `1.24.7` · `1.23.8` · `1.22.6`。
 
-项目目前处于发布前验收阶段。七个指定 Gitea 版本的共同业务及 MCP 回归已通过；Windows、macOS 最低版本／Intel、目标终端和四客户端完整 UI 仍有待实测项。正式下载渠道与签名条件尚未落实。具体版本和验证边界见 [兼容性说明](docs/compatibility.md)，Windows 实测入口见 [Windows 验证指南](docs/windows-validation.md)。
+项目目前处于发布前验收阶段。七个指定 Gitea 版本的共同业务及 MCP 回归已通过；Windows、macOS 最低版本／Intel、目标终端和四客户端完整 UI 仍有待实测项。预编译包通过 GitHub Releases 分发；当前未提供 Developer ID／公证或 Authenticode 签名。具体版本和验证边界见 [兼容性说明](docs/compatibility.md)，Windows 实测入口见 [Windows 验证指南](docs/windows-validation.md)。
 
-The project is undergoing pre-release acceptance testing. Shared business workflows and MCP regression checks have passed against seven specified Gitea versions. Testing remains pending for Windows, the minimum macOS version and Intel Macs, target terminals, and the complete UI flows of all four clients. Official distribution and signing arrangements are not yet finalized. See [compatibility and validation status](docs/compatibility.md) for exact versions and coverage, and the [Windows validation guide](docs/windows-validation.md) for Windows testing.
+The project is undergoing pre-release acceptance testing. Shared business workflows and MCP regression checks have passed against seven specified Gitea versions. Testing remains pending for Windows, the minimum macOS version and Intel Macs, target terminals, and the complete UI flows of all four clients. Prebuilt packages are distributed through GitHub Releases; Developer ID signing, notarization, and Authenticode signing are not provided. See [compatibility and validation status](docs/compatibility.md) for exact versions and coverage, and the [Windows validation guide](docs/windows-validation.md) for Windows testing.
 
 ## 从源码构建 / Build from source
 
@@ -241,9 +241,9 @@ go build -o bin/sotea.exe ./cmd/sotea
 .\bin\sotea.exe version
 ```
 
-普通源码构建从 [VERSION](cmd/sotea/VERSION) 读取版本，当前显示 `v0.1.0-rc.1`；CI 构建附加 `+ci.<commit>` 标识。开发文档、设计与验收记录保存在本地 `devdocs/`，该目录已加入 Git 忽略规则；对外使用文档统一放在 [docs/](docs/README.md)。隔离测试环境的执行说明保留在 [tests/integration](tests/integration/README.md)。
+普通源码构建从 [VERSION](cmd/sotea/VERSION) 读取版本，当前显示 `v0.1.0-rc.2`；CI 构建附加 `+ci.<commit>` 标识。开发文档、设计与验收记录保存在本地 `devdocs/`，该目录已加入 Git 忽略规则；对外使用文档统一放在 [docs/](docs/README.md)。隔离测试环境的执行说明保留在 [tests/integration](tests/integration/README.md)。
 
-Source builds read their version from [VERSION](cmd/sotea/VERSION), currently `v0.1.0-rc.1`. CI builds append `+ci.<commit>` for traceability. Development documentation, designs, and acceptance records are kept locally in `devdocs/`, which is ignored by Git. User documentation lives in [docs/](docs/README.md). Instructions for the isolated test environment are in [tests/integration](tests/integration/README.md).
+Source builds read their version from [VERSION](cmd/sotea/VERSION), currently `v0.1.0-rc.2`. CI builds append `+ci.<commit>` for traceability. Development documentation, designs, and acceptance records are kept locally in `devdocs/`, which is ignored by Git. User documentation lives in [docs/](docs/README.md). Instructions for the isolated test environment are in [tests/integration](tests/integration/README.md).
 
 GitHub Actions 在 push 和 PR 时执行格式、依赖、静态分析、竞态回归及 macOS／Windows 原生测试和构建，并在 macOS 验证菜单与 MCP 冒烟。纯公开文档变更跳过 Go 检查。运行范围和本地复现见 [CI 说明](docs/ci.md)。
 

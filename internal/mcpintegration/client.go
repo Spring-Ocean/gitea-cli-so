@@ -3,6 +3,7 @@
 package mcpintegration
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -143,10 +144,16 @@ func Destination(client Client, project string) (string, error) {
 }
 
 // encodeEntry 仅序列化即将写入的 sotea 条目供预览和格式适配复用。
-// 使用标准转义保留 Windows 路径和含空格参数，绝不生成 shell 字符串。
+// Codex 只输出独立的 sotea 子表，避免重定义已有父表；路径与参数使用标准转义。
 func encodeEntry(client Client, entry map[string]any) ([]byte, error) {
 	if client == Codex {
-		return toml.Marshal(map[string]any{"mcp_servers": map[string]any{"sotea": entry}})
+		encoded, err := toml.Marshal(map[string]any{"mcp_servers": map[string]any{"sotea": entry}})
+		if err != nil {
+			return nil, err
+		}
+		// 仅移除编码器生成的空父表，不扫描或改写用户配置。
+		// 保留子表的完整限定路径，嵌套设置也仍归属于 sotea。
+		return bytes.TrimPrefix(encoded, []byte("[mcp_servers]\n")), nil
 	}
 	return json.MarshalIndent(entry, "", "  ")
 }
