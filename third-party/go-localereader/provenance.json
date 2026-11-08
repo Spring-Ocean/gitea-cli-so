@@ -1,0 +1,9 @@
+{
+  "module": "github.com/mattn/go-localereader",
+  "version": "v0.0.1",
+  "version_license_declaration": "https://github.com/mattn/go-localereader/blob/v0.0.1/README.md",
+  "supplement_source": "https://raw.githubusercontent.com/mattn/go-localereader/6bae6c923850ab5e0da9f36f69811ffe17064228/LICENSE",
+  "upstream_commit": "6bae6c923850ab5e0da9f36f69811ffe17064228",
+  "sha256": "dceede03550621e65ec7b79fcba87cf6dbb9d31132a8ae71a8fe8ceec0af7da3",
+  "note": "The pinned module README declares MIT but omits a standalone license. Preserve its README and this later upstream license text; this does not change the module version."
+}

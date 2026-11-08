@@ -15,7 +15,6 @@ import queue
 import subprocess
 import tempfile
 import threading
-import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -83,19 +82,21 @@ class Fixture(http.server.BaseHTTPRequestHandler):
 def codex_smoke(binary, root, configuration, url):
     """通过真实 Codex app-server 验证 Schema、读取和两阶段写入。
 
-    不启动模型回合、不提供生产凭证，用户已有 MCP 服务只在此子进程被禁用。
+    不启动模型回合；临时 HOME／CODEX_HOME 与清理后的环境隔离开发者设置和凭证。
     """
     server = {"command": str(binary), "args": ["--config", str(configuration), "--workdir", str(root),
               "--instance", "team", "--account", "alice", "mcp", "serve", "--allow-write", "--allow-raw-api"],
               "tool_timeout_sec": 360, "env": {"SOTEA_TOKEN": "synthetic-client-token", "SOTEA_TOKEN_INSTANCE": "team"}}
     overrides = {"sotea_p6_test": server}
-    existing = Path.home() / ".codex/config.toml"
-    if existing.exists():
-        settings = tomllib.loads(existing.read_text())
-        for name in settings.get("mcp_servers", {}):
-            overrides[name] = {"enabled": False}
+    environment = dict(os.environ, HOME=str(root / "codex-home"), CODEX_HOME=str(root / "codex-config"))
+    Path(environment["HOME"]).mkdir()
+    Path(environment["CODEX_HOME"]).mkdir()
+    for name in list(environment):
+        if name.startswith(("SOTEA_", "OPENAI_", "GIT_CONFIG")):
+            environment.pop(name)
+    environment.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
     process = subprocess.Popen(["codex", "-c", "mcp_servers=" + toml(overrides), "app-server", "--stdio"],
-                               cwd=root, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                               cwd=root, env=environment, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     messages = queue.Queue()
 
     def read_messages():

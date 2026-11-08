@@ -1,6 +1,8 @@
 # P0 隔离验证环境
 
-本目录准备首版所需的 Gitea 实例和测试资源。P0 环境演练仅代表基础设施；P6 已完成七版本 MCP 代表性业务验证，具体产物和范围见 docs/p6-mcp.md，不能外推到未验收平台或客户端。
+本目录准备首版所需的 Gitea 实例和测试资源。P0 环境演练仅代表基础设施；P6 已完成七版本 MCP 代表性业务验证，具体产物和范围见 devdocs/p6-mcp.md，不能外推到未验收平台或客户端。
+
+开发设计与历史验收记录保存在本地 `devdocs/`，该目录不随 Git 分发；首次克隆没有这些历史文件属于正常情况。脚本会创建所需的结果目录，执行步骤以本文和脚本帮助为准。用户使用文档位于 [docs](../../docs/README.md)。
 
 ## 文件与隔离范围
 
@@ -101,7 +103,7 @@ TLS 演练每次生成独立测试 CA 和 loopback SAN 证书，保存至 .state
 
 ## 结果与诊断
 
-每个版本的 .state/result-<version>.json 包含实际摘要、架构、版本和逐轮资源编号；fixtures-result.json 保存 helper／HTTP／TLS 结论。脱敏汇总见 [p0-readiness.md](../../docs/p0-readiness.md)，单次验证模板见 [validation-record.example.json](../../testdata/p0/validation-record.example.json)。
+每个版本的 .state/result-<version>.json 包含实际摘要、架构、版本和逐轮资源编号；fixtures-result.json 保存 helper／HTTP／TLS 结论。脱敏汇总见 `devdocs/p0-readiness.md`（本地记录），单次验证模板见 [validation-record.example.json](../../testdata/p0/validation-record.example.json)。
 
 端口占用、镜像下载失败或版本不符均保留失败状态，不自动改端口、改版本或访问其他实例。若账号创建步骤失败，只检查该 Compose 服务的局部诊断；不要把含密钥的配置或完整日志拷入共享报告。
 
@@ -117,25 +119,25 @@ python3 scripts/p4-selector-smoke.py
 
 组织／团队准备需要每版独立的 p4-bootstrap fixture 管理员，密码留在 .state/p4-bootstrap-<version>.json（0600）。该合成 fixture 属于隔离验证环境并明确保留，不能修改原有 P0 账号权限或拿真实团队账号代替；Gitea 不允许删除最后一个管理员，不应尝试绕过该限制清理数据库。随机组织、仓库和 fork 的清理状态与 fixture 保留分别记录。
 
-Docker 磁盘受限时按 [P3 记录](../../docs/p3-issue.md)核验主机镜像归档、轮换本项目指定服务并保留卷，不执行全局 prune。--versions 可分批运行，合并证据前必须核对产物摘要一致。最终 P4 证据见 [P4 记录](../../docs/p4-workflows.md)与 [机器记录](../../docs/validation/p4-result.json)；未具备的目标 OS／终端宿主仍保持待实测。
+Docker 磁盘受限时按 `devdocs/p3-issue.md`（本地记录）核验主机镜像归档、轮换本项目指定服务并保留卷，不执行全局 prune。--versions 可分批运行，合并证据前必须核对产物摘要一致。最终 P4 证据见 `devdocs/p4-workflows.md`（本地记录）与 `devdocs/validation/p4-result.json`（本地记录）；未具备的目标 OS／终端宿主仍保持待实测。
 
 ## P5 菜单与终端
 
 使用 scripts/check.py --phase p5 构建，scripts/p5-terminal-smoke.py 验证 VT／静态菜单、会话／配置、未知结果、输出和交接；scripts/p5-gitea-menu-smoke.py --versions VERSION 在固定实例上验证真实菜单。--result 可按版本隔离记录，合并时必须核对同一二进制摘要。真实脚本只创建随机 sotea-p5- 前缀资源和独立 token，finally 按精确 ID 清理。
 
-镜像沿用 P3 已核对的主机归档，在本项目内轮换 1.22.6 与 28.3.0，保留所有卷，结束恢复原驻留镜像并停止服务；不清理其他项目。PTY 记录不替代 Windows 或 GUI 宿主验收。详见 [P5 交付记录](../../docs/p5-terminal-experience.md)。
+镜像沿用 P3 已核对的主机归档，在本项目内轮换 1.22.6 与 28.3.0，保留所有卷，结束恢复原驻留镜像并停止服务；不清理其他项目。PTY 记录不替代 Windows 或 GUI 宿主验收。详见 `devdocs/p5-terminal-experience.md`（本地记录）。
 
 ### P5 持续界面修订回归
 
 2026-11-07 根据用户 iTerm2 反馈改为 Enter 导航、Esc 返回和单一屏内结果。运行 p5-terminal-smoke.py 验证 VT／静态完整会话、默认 No、unknown 不重放、配置并发、Git／API 原始流交接及终端恢复；VT 增加持续加载中取消、resize、单一 alternate-screen 生命周期和结果滚动检查。p5-gitea-menu-smoke.py 使用同一产物，在七个固定隔离版本执行登录、候选、拒绝、关闭、Release 草稿／附件与精确清理。
 
-导航与单资源使用 Enter（静态降级输入编号即进入），多选资源才用 Space。p4-selector-smoke.py 相应保留 PR 无默认勾选和 Release 明确接受焦点标签，不再把单选 Enter 当作无效输入。修订证据见 [p5-menu-revision-result.json](../../docs/validation/p5-menu-revision-result.json)，与原 p5-result.json 分开归档；不能用 PTY 代替 iTerm2／Windows 实机验收。
+导航与单资源使用 Enter（静态降级输入编号即进入），多选资源才用 Space。p4-selector-smoke.py 相应保留 PR 无默认勾选和 Release 明确接受焦点标签，不再把单选 Enter 当作无效输入。修订证据见 `devdocs/validation/p5-menu-revision-result.json`（本地记录），与原 p5-result.json 分开归档；不能用 PTY 代替 iTerm2／Windows 实机验收。
 
 ### P5 首页与全部业务详情修订
 
 首页资料和统一可读详情的回归扩展了现有脚本：p5-terminal-smoke.py 检查 API 返回的姓名／邮箱、Repository 分组、菜单 API JSON 数组／未知字段／大整数和脱敏，以及非 JSON API 原始交接；p5-gitea-menu-smoke.py 在每个固定版本先核对 API 用户和仓库概览，再执行原业务链路及清理。标准业务 --json 和直接 api 的原始字节／文件边界由原有测试继续保护。
 
-本轮最终证据见 [p5-home-display-result.json](../../docs/validation/p5-home-display-result.json)，包含同产物七版本、完整终端会话与清理记录。
+本轮最终证据见 `devdocs/validation/p5-home-display-result.json`（本地记录），包含同产物七版本、完整终端会话与清理记录。
 
 ### P5 分组分页与账户浏览
 
@@ -155,4 +157,4 @@ uv run --with pyte==0.8.2 --with pillow==12.0.0 python scripts/p5-guided-account
 七版本真实菜单脚本的 Account 登录改为四步向导、显式保存和继续；保留原有资源确认与精确清理。最终记录与旧版产物分开归档，未具备的 Windows／GUI 环境保持待实测。
 
 
-P6 可通过 scripts/p6-mcp-smoke.py 逐版运行真实 stdio 工作流，每次只启动一个固定实例，验证所有 21 action 代表性操作、目录／读取、CLI 对照、重复提交和定向清理；停止后只移除可重建容器层，保留数据卷与镜像。scripts/p6-client-smoke.py 使用回环合成服务和隔离客户端配置验证真实 Codex 转发／Claude Code 健康检查，不执行模型任务，不代替四客户端完整 UI 验收。脱敏结果位于 docs/validation/p6-*.json。
+P6 可通过 scripts/p6-mcp-smoke.py 逐版运行真实 stdio 工作流，每次只启动一个固定实例，验证所有 21 action 代表性操作、目录／读取、CLI 对照、重复提交和定向清理；停止后只移除可重建容器层，保留数据卷与镜像。scripts/p6-client-smoke.py 使用回环合成服务和隔离客户端配置验证真实 Codex 转发／Claude Code 健康检查，不执行模型任务，不代替四客户端完整 UI 验收。脱敏结果位于 devdocs/validation/p6-*.json。

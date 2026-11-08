@@ -17,7 +17,8 @@
 .idea/
 .vscode/
 
-# Local agent instructions
+# Local development documentation and agent instructions
+/devdocs/
 /AGENTS.md
 
 # Isolated integration credentials, CA keys and runtime evidence

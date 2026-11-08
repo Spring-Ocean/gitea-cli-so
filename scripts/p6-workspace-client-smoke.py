@@ -140,10 +140,11 @@ def codex_workspace(binary, root):
 def main():
     """执行隔离真实客户端验收并绑定实际产物摘要。
 
-    只有完整成功才更新记录，不读取开发者凭证或更改真实客户端配置。
+    只有完整成功才更新本地 devdocs 默认记录或显式结果文件，自动创建父目录；不读取开发者凭证。
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", type=Path, default=ROOT / "dist/p6-workspace/darwin-arm64/sotea")
+    parser.add_argument("--result", type=Path, default=ROOT / "devdocs/validation/p6-workspace-clients-result.json")
     args = parser.parse_args()
     binary = args.binary.resolve()
     with tempfile.TemporaryDirectory(prefix="sotea-workspace-client-") as temporary:
@@ -156,7 +157,8 @@ def main():
                 "binary": str(binary.relative_to(ROOT)), "sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
                 "codex": result, "claude": claude,
                 "pending": ["Claude Code actual workspace tool calls", "Cursor and VS Code actual workspace calls", "Windows 10 / 11"]}
-    (ROOT / "docs/validation/p6-workspace-clients-result.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    args.result.parent.mkdir(parents=True, exist_ok=True)
+    args.result.write_text(json.dumps(evidence, indent=2) + "\n")
     print("Codex: both project workspaces and cross-project rejection passed.")
     print("Claude Code: same user configuration launched both project environments; full tool UI remains pending.")
 

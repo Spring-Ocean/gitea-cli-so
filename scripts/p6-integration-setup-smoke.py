@@ -194,14 +194,14 @@ def scenario(binary, client, scope, follow=False):
 def main():
     """对同一二进制执行四格式及用户／项目路径的闭环验证。
 
-    证据只保存摘要和场景状态，不把临时配置、终端内容或凭证写入仓库。
+    证据写入可自动创建的结果目录，默认是本地 devdocs/validation；不保存临时配置或凭证。
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", type=Path, default=ROOT / "dist/p6-integrations/darwin-arm64/sotea")
     parser.add_argument("--clients", nargs="+", choices=["Codex", "Claude Code", "Cursor", "VS Code"], default=["Codex", "Claude Code", "Cursor", "VS Code"])
     parser.add_argument("--scopes", nargs="+", choices=["project", "user"], default=["project", "user"])
     parser.add_argument("--follow", action="store_true")
-    parser.add_argument("--result", type=Path, default=ROOT / "docs/validation/p6-integrations-result.json")
+    parser.add_argument("--result", type=Path, default=ROOT / "devdocs/validation/p6-integrations-result.json")
     args = parser.parse_args()
     binary = args.binary.resolve()
     results = []
@@ -213,6 +213,7 @@ def main():
                 "binary": str(binary.relative_to(ROOT)), "sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
                 "scope": "Isolated POSIX PTY and real MCP stdio; no client UI or real Gitea account",
                 "scenarios": results, "pending": ["iTerm2 / Terminal GUI", "Windows 10 / 11", "Four client configuration reload and approval UI"]}
+    args.result.parent.mkdir(parents=True, exist_ok=True)
     args.result.write_text(json.dumps(evidence, indent=2) + "\n")
 
 

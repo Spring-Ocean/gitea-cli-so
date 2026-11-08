@@ -31,7 +31,7 @@ def main():
     """
     parser = argparse.ArgumentParser(description="Check and build sotea development artifacts.")
     parser.add_argument("--build-only", action="store_true", help="Build without rerunning tests or vet")
-    parser.add_argument("--phase", choices=("p1", "p2", "p3", "p4", "p5", "p6", "p6-integrations", "p6-workspace"), default="p1", help="Choose the development artifact directory")
+    parser.add_argument("--phase", choices=("p1", "p2", "p3", "p4", "p5", "p6", "p6-integrations", "p6-workspace", "p7"), default="p1", help="Choose the development artifact directory")
     args = parser.parse_args()
     output = ROOT / "dist" / args.phase
     environment = dict(os.environ, GOTOOLCHAIN="go1.27.3")
@@ -46,20 +46,24 @@ def main():
         checks["go_vet"] = "passed"
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())
+    build_version = f"p7-{revision[:7]}" if args.phase == "p7" else f"dev-{revision[:7]}"
+    build_options = ["-trimpath"]
+    if args.phase == "p7":
+        build_options.append("-buildvcs=false")
     artifacts = []
     for system, arch in (("darwin", "arm64"), ("darwin", "amd64"), ("windows", "amd64")):
         directory = output / f"{system}-{arch}"
         directory.mkdir(parents=True, exist_ok=True)
         target = directory / ("sotea.exe" if system == "windows" else "sotea")
         candidate_env = dict(environment, GOOS=system, GOARCH=arch, CGO_ENABLED="0")
-        run(["go", "build", "-trimpath", "-ldflags", f"-X main.version=dev-{revision[:7]}",
+        run(["go", "build", *build_options, "-ldflags", f"-X main.version={build_version}",
              "-o", str(target), "./cmd/sotea"], candidate_env)
         artifacts.append({"os": system, "arch": arch, "path": str(target.relative_to(ROOT)),
                           "sha256": hashlib.sha256(target.read_bytes()).hexdigest(), "runtime_status": "not_tested"})
         print(f"Built {system}/{arch}.", flush=True)
     sources = [ROOT / "go.mod", ROOT / "go.sum", *(ROOT / "cmd").rglob("*.go"), *(ROOT / "internal").rglob("*.go")]
     record = {"schema_version": 1, "time_utc": datetime.now(timezone.utc).isoformat(), "go": version,
-              "commit": revision, "worktree_dirty": dirty, "checks": checks, "artifacts": artifacts,
+              "commit": revision, "version": build_version, "build_options": [*build_options, "CGO_ENABLED=0"], "worktree_dirty": dirty, "checks": checks, "artifacts": artifacts,
               "source_sha256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(sources)}}
     output.mkdir(parents=True, exist_ok=True)
     (output / "build-info.json").write_text(json.dumps(record, indent=2) + "\n")
