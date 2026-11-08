@@ -520,6 +520,9 @@ def session(binary, directory, config, fixture, term):
             terminal.fields_done("api")
             terminal.wait("API path (relative")
             terminal.send(b"/plain-sample\r")
+            # API 路径页脚在加载期间也可见，不能作为原始响应已送达的完成信号。
+            # 先等实际内容，再核对原始字节，避免较慢 CI 误报交接丢失。
+            terminal.wait("RAW MENU OUTPUT")
             terminal.wait("api · exit 0")
             if b"RAW MENU OUTPUT" not in terminal.all_output:
                 raise RuntimeError("Non-JSON API output lost its raw terminal handoff.")
