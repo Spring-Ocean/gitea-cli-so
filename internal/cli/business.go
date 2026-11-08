@@ -1,16 +1,19 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app/repository"
+	"github.com/Spring-Ocean/gitea-cli-so/internal/app/session"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/auth"
+	"github.com/Spring-Ocean/gitea-cli-so/internal/config"
+	"github.com/Spring-Ocean/gitea-cli-so/internal/git"
 	protocol "github.com/Spring-Ocean/gitea-cli-so/internal/mcp"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
@@ -315,43 +318,46 @@ func addReadCommands(root *cobra.Command, r *runtime) {
 	}
 }
 
-// addMCPCommand 以协议专用 stdio 运行仅含诊断工具的内部原型。
-// 不注册写入或登录，不把宿主 cwd 当作已授权本地仓库根。
+// addMCPCommand 注册完整 stdio 服务，客户端管理此进程及独立权限开关。
+// 初始化不联网，MCP 调用直接进入共享环境与应用服务，不创建临时 Cobra 命令。
 func addMCPCommand(root *cobra.Command, r *runtime, version string) {
-	group := &cobra.Command{
-		Use:   "mcp",
-		Short: "Run the local MCP diagnostic prototype",
-	}
-	group.AddCommand(&cobra.Command{
+	options := protocol.Options{}
+	group := &cobra.Command{Use: "mcp", Short: "Run the local MCP tools over stdio"}
+	serve := &cobra.Command{
 		Use:         "serve",
-		Short:       "Serve the read-only P2 instance diagnostic over stdio",
+		Short:       "Serve Gitea tools over stdio; read-only by default",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"sotea.raw": "true"},
 		RunE: func(command *cobra.Command, args []string) error {
 			if r.options.json {
 				return app.Wrap(app.InvalidArgument, "MCP stdout is reserved for the protocol; do not use --json.", nil)
 			}
-			server := protocol.New(version, func(ctx context.Context, input protocol.InstanceInput) app.Result {
-				options := r.input(false)
-				options.NoLocal = r.options.workdir == ""
-				if input.Instance != "" {
-					options.Instance = input.Instance
-				}
-				if input.Account != "" {
-					options.Account = input.Account
-				}
-				// 每次请求使用自己的 Cobra 上下文副本，避免并发工具调用改写共享命令。
-				requestCommand := &cobra.Command{}
-				requestCommand.SetContext(ctx)
-				t, snapshot, service, err := r.resolve(requestCommand, options, false)
-				if err != nil {
-					return app.NewResult(app.Context{}, nil, err)
-				}
-				info, err := r.versionInfo(ctx, t, snapshot, service, input.Refresh)
-				return dataResult(t, info, err)
-			}, r.options.redactor)
-			return server.Run(command.Context(), &sdk.StdioTransport{MaxLineLength: 256 << 10})
+			path, err := config.ResolvePath(r.options.configPath, nil)
+			if err != nil {
+				return err
+			}
+			environment := &session.Environment{
+				Authentication: auth.Service{Store: config.Store{Path: path}, Vault: auth.SystemVault{}, Git: git.Runner{}, OnSecret: r.options.redactor.Add},
+				Cache:          &r.cache, Locks: &r.writes, CAFile: r.options.caFile, Proxy: r.options.proxy,
+			}
+			options.Defaults = r.input(false)
+			host, err := protocol.NewHost(version, environment, options, r.options.redactor)
+			if err != nil {
+				return err
+			}
+			return host.Run(command.Context(), &sdk.StdioTransport{MaxLineLength: 256 << 10})
 		},
-	})
+	}
+	serve.Flags().BoolVar(&options.AllowWrite, "allow-write", false, "Expose exact prepare, commit and status tools; approval remains the client's responsibility")
+	serve.Flags().BoolVar(&options.AllowRawAPI, "allow-raw-api", false, "Expose bounded raw API access; API writes also require --allow-write")
+	serve.Flags().BoolVar(&options.FollowWorkspace, "follow-workspace", false, "Authorize each client's project through MCP roots or an explicitly selected client launch adapter")
+	serve.Flags().StringVar(&options.WorkspaceSource, "workspace-source", "", "Use a verified client launch adapter with --follow-workspace: codex or claude; otherwise require MCP roots")
+	serve.Flags().DurationVar(&options.ReadTimeout, "read-timeout", 30*time.Second, "Bound reads and preparation, including queue time")
+	serve.Flags().DurationVar(&options.WriteTimeout, "write-timeout", 60*time.Second, "Bound ordinary write execution, including lock and queue time")
+	serve.Flags().DurationVar(&options.UploadTimeout, "upload-timeout", 300*time.Second, "Bound uploads and prepared API execution")
+	serve.Flags().IntVar(&options.MaxOutput, "max-output-bytes", 256<<10, "Bound the complete serialized tool result, including its JSON text fallback")
+	serve.Flags().Int64Var(&options.MaxFileBytes, "max-file-bytes", 64<<20, "Bound total source-file bytes per request")
+	serve.Flags().Int64Var(&options.MaxSnapshotBytes, "max-snapshot-bytes", 256<<20, "Bound concurrent private file snapshots")
+	group.AddCommand(serve)
 	root.AddCommand(group)
 }

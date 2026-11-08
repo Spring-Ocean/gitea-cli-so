@@ -1,12 +1,37 @@
 package tui
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 )
+
+// TestExplicitFocusOverridesHistory 保护向导当前字段与默认拒绝不被历史导航焦点覆盖。
+// 普通导航保留历史行为；明确默认项不存在时回到首项，不能沿用上次批准。
+func TestExplicitFocusOverridesHistory(t *testing.T) {
+	for _, selected := range []string{"back", "missing"} {
+		current := sessionModel{
+			session: &Session{color: "never"},
+			focus:   map[string]string{"Confirm": "apply"},
+		}
+		request := screenRequest{
+			kind:         "notice",
+			title:        "Confirm",
+			ctx:          context.Background(),
+			initialFocus: &selected,
+			choices:      []Choice{{ID: "back", Label: "Back"}, {ID: "apply", Label: "Apply"}},
+			reply:        make(chan screenReply, 1),
+		}
+		next, _ := current.Update(request)
+		current = next.(sessionModel).key(tea.KeyMsg{Type: tea.KeyEnter})
+		if reply := <-request.reply; reply.text != "back" {
+			t.Fatalf("explicit default restored a prior approval: %q", reply.text)
+		}
+	}
+}
 
 // TestInputEditingAndSecretPresentation 保护真实表单编辑语义及密钥不可见边界。
 // 带初值的普通输入可以插入编辑，Secret无论长度或光标位置都只显示同一隐藏提示。

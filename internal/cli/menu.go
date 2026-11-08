@@ -130,6 +130,10 @@ func (r *runtime) menuWorkspace(command *cobra.Command, version string, browsed 
 				Description: "Browse your repositories and organizations, then open a workspace",
 			}}, choices...)
 			choices = append(choices, tui.Choice{
+				ID:          "@mcp",
+				Label:       "MCP integrations",
+				Description: "Set up, check or remove sotea in Codex, Claude Code, Cursor and VS Code",
+			}, tui.Choice{
 				ID:          "@context",
 				Label:       "Context",
 				Description: "Switch the instance, repository, account or remote for this session",
@@ -178,6 +182,8 @@ func (r *runtime) menuWorkspace(command *cobra.Command, version string, browsed 
 			return err
 		}
 		switch choice {
+		case "@mcp":
+			err = r.mcpIntegrations(command)
 		case "auth":
 			err = r.accountMenu(command, version)
 			if err == nil {

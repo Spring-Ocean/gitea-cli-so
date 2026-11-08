@@ -5,6 +5,7 @@ package release
 import (
 	"context"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
@@ -38,6 +39,10 @@ type Asset struct {
 // 写操作要求精确已研究版本和准备计划，服务内不进行终端交互。
 type Service struct {
 	write.Service
+	// OpenInput 在 prepare 与 commit 的真实打开位置注入文件授权；返回文件由服务关闭。
+	OpenInput func(string) (*os.File, error)
+	// FreezeInput 在源文件重验后生成固定内容，返回的 cleanup 由上传服务负责调用。
+	FreezeInput func(context.Context, *os.File) (*os.File, func() error, error)
 }
 
 // Filter 保存 Release 名称／标签的本地筛选与有界分页。

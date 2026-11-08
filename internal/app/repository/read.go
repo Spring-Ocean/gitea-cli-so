@@ -52,6 +52,8 @@ func Read(ctx context.Context, authentication auth.Service, t target.Target, que
 		}
 		path += "/commits/" + url.PathEscape(query.Ref) + "/status"
 		list = false
+	case "assignee.list":
+		path += "/assignees"
 	case "label.list":
 		path += "/labels"
 	case "milestone.list":

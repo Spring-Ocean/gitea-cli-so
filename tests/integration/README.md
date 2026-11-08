@@ -1,6 +1,6 @@
 # P0 隔离验证环境
 
-本目录准备首版所需的 Gitea 实例和测试资源。当前环境演练验证的是基础设施，不表示尚未实现的 sotea 业务命令或 MCP 已经兼容。
+本目录准备首版所需的 Gitea 实例和测试资源。P0 环境演练仅代表基础设施；P6 已完成七版本 MCP 代表性业务验证，具体产物和范围见 docs/p6-mcp.md，不能外推到未验收平台或客户端。
 
 ## 文件与隔离范围
 
@@ -153,3 +153,6 @@ uv run --with pyte==0.8.2 --with pillow==12.0.0 python scripts/p5-guided-account
 ~~~
 
 七版本真实菜单脚本的 Account 登录改为四步向导、显式保存和继续；保留原有资源确认与精确清理。最终记录与旧版产物分开归档，未具备的 Windows／GUI 环境保持待实测。
+
+
+P6 可通过 scripts/p6-mcp-smoke.py 逐版运行真实 stdio 工作流，每次只启动一个固定实例，验证所有 21 action 代表性操作、目录／读取、CLI 对照、重复提交和定向清理；停止后只移除可重建容器层，保留数据卷与镜像。scripts/p6-client-smoke.py 使用回环合成服务和隔离客户端配置验证真实 Codex 转发／Claude Code 健康检查，不执行模型任务，不代替四客户端完整 UI 验收。脱敏结果位于 docs/validation/p6-*.json。

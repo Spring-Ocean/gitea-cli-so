@@ -62,13 +62,15 @@ type InputOptions struct {
 
 // NoticeOptions 将状态原因、恢复说明和可执行动作分开呈现。
 // Kind 仅选择本地固定色板；Choices 返回稳定 ID，不自动执行远端操作。
+// DefaultChoice 非空时覆盖历史焦点，防止确认页默认恢复上一次的批准选项。
 type NoticeOptions struct {
-	Title   string
-	Message string
-	Hint    string
-	Code    string
-	Kind    output.Style
-	Choices []Choice
+	Title         string
+	Message       string
+	Hint          string
+	Code          string
+	Kind          output.Style
+	Choices       []Choice
+	DefaultChoice string
 }
 
 // WriteStyled 为本地生成的表头或状态行记录语义角色，不创建分组分页。
@@ -99,10 +101,15 @@ func (s *Session) Input(ctx context.Context, options InputOptions) (string, erro
 
 // Notice 显示结构化状态与恢复动作，返回主动选择的动作 ID。
 // 没有动作时 Enter 关闭；Esc 返回 Cancelled，调用者不得把取消解释为已经恢复或重新执行成功。
+// 明确 DefaultChoice 时使用该项覆盖历史导航焦点，不将历史批准作为本次默认选择。
 func (s *Session) Notice(ctx context.Context, options NoticeOptions) (string, error) {
-	reply, err := s.request(ctx, screenRequest{
+	request := screenRequest{
 		kind: "notice", title: options.Title, choices: options.Choices, notice: &options,
-	})
+	}
+	if options.DefaultChoice != "" {
+		request.initialFocus = &options.DefaultChoice
+	}
+	reply, err := s.request(ctx, request)
 	return reply.text, err
 }
 

@@ -68,7 +68,7 @@ func (s Service) execute(ctx context.Context, connection *write.Connection, plan
 		return write.Step(execution, "tag", app.Wrap(app.PreconditionChanged, "The Git tag changed after preview. Confirm the target again.", nil))
 	}
 	if request.Operation == "release.asset.upload" {
-		return upload(ctx, connection, plan, current, execution)
+		return s.upload(ctx, connection, plan, current, execution)
 	}
 	if plan.targetRef != "" {
 		resolved, err := commitSHA(ctx, connection, plan.targetRef)

@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "time_utc": "2026-11-07T17:29:45.576254+00:00",
+  "binary_sha256": "5fae34a53decc6165080215182193251b49e03a5e879cb28e705bcf72740aa04",
+  "clients": [
+    {
+      "client": "Codex",
+      "version": "codex-cli 0.167.0",
+      "status": "partial",
+      "passed": [
+        "real_app_server_initialization",
+        "32_tools_with_strict_union_schema",
+        "instance_and_identity_reads",
+        "prepare_commit_status",
+        "duplicate_commit_single_remote_write"
+      ],
+      "not_tested": [
+        "human_approval_ui",
+        "model_parameter_generation",
+        "client_cancellation_ui"
+      ]
+    },
+    {
+      "client": "Claude Code",
+      "version": "2.1.318 (Claude Code)",
+      "status": "partial",
+      "passed": [
+        "isolated_configuration",
+        "real_stdio_healthcheck_connected"
+      ],
+      "not_tested": [
+        "business_tool_calls",
+        "strict_union_parameter_generation",
+        "human_approval_ui",
+        "cancel_and_eof_ui"
+      ]
+    },
+    {
+      "client": "Cursor",
+      "version": "3.27.6",
+      "status": "not_tested",
+      "passed": [
+        "product_version_identified"
+      ],
+      "not_tested": [
+        "mcp_discovery",
+        "business_calls",
+        "approval_ui",
+        "cancel_and_eof_ui"
+      ]
+    },
+    {
+      "client": "VS Code",
+      "version": "1.143.0",
+      "status": "not_tested",
+      "passed": [
+        "product_version_identified"
+      ],
+      "not_tested": [
+        "mcp_discovery",
+        "business_calls",
+        "approval_ui",
+        "cancel_and_eof_ui"
+      ]
+    }
+  ]
+}

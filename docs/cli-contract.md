@@ -1,6 +1,6 @@
 # sotea 首版运行与认证契约
 
-> 状态：P2 至 P5 业务 CLI、上下文、认证、持续菜单和终端输出已实现；MCP 为诊断原型，完整工具与目标宿主验收待推进
+> 状态：P2 至 P5 业务 CLI、上下文、认证、持续菜单和终端输出已实现；P6 完整 MCP 工具与七版本代表性链路通过，目标宿主／客户端完整 UI 待验收
 >
 > 更新日期：2026-11-07
 >
@@ -227,7 +227,7 @@ auth login／refresh 的 token 入口包括安全终端或 --with-token；--cred
 
 原始 api 提供任意方法、--query、--header、--include 以及第 10 节的请求体／上传／下载。版本入口未知或被拦截不会阻止明确 API 请求；未确认来源不得发送凭证。默认 stdout 为 body，--include 增加状态与头；--json 不包装原始响应，失败诊断仅走 stderr。认证／Host 相关头由上下文控制；非读取方法遵循确认契约。
 
-mcp serve 当前只有 sotea_instance_info 原型，协商 2025-11-25／2025-06-18，协议 stdin 不参与登录或补参。其余工具及真实 Harness 验收仍按 P6／P7 实施。当前实现、依赖、边界和证据见 [P2 记录](p2-readonly.md)。
+mcp serve 已接入 P6 完整工具：默认 27 项远端只读，--allow-write 增加三项计划工具，--allow-raw-api 独立启用原始 API，明确 --workdir 增加固定 Git 与文件授权，完整模式 32 工具／21 action。继续协商 2025-11-25／2025-06-18，协议 stdin 不参与登录或补参；完整 JSON 文本副本与结构化结果一致。共享服务、七版本及客户端证据见 [P6 记录](p6-mcp.md)；四客户端完整 UI 和真实平台未验收项保留待实测。
 
 
 ## 10. P3 通用 API 文件契约
@@ -254,9 +254,11 @@ Release create 默认草稿和非预发布，新标签必须 --target，目标�
 
 release asset upload 一次只接受一个普通文件，默认文件名，可 --name 明确改名；默认 HTTP 预算 300 秒，主动取消可提前中止。准备后文件身份／大小／修改时间／SHA-256 任一变化都需重新确认。发送期间和发送后再次核验；未知结果先查附件，已创建附件后本地校验失败返回 partial，不补传、不发布、不回滚。附件名的预检查不是跨进程原子锁，不能保证其他进程同时上传时全局唯一。
 
-当前专用命令及验收记录见 [P4 记录](p4-workflows.md)；MCP 完整工具和持续菜单仍按 P5／P6 实施。
+当前专用命令及验收记录见 [P4 记录](p4-workflows.md)；持续菜单与 MCP 交付分别见 P5／P6 记录，真实平台及客户端验收另行追踪。
 
 ## 12. P5 交互与终端实施契约
+
+Home 增加 MCP integrations，即使当前仓库不可用也保留入口；它不执行 mcp serve 长驻服务。客户端 → User／Project 范围 → 配置位置 → 管理页，支持 Set up integration、Check connection、Update integration、Remove integration。安装／更新逐步选择已保存实例和账号、可选 repo／工作目录、独立写／raw 开关及二进制路径；默认只读；本地访问页面提供 Follow client workspace、Choose a fixed directory、Remote tools only，首次安装聚焦跟随模式，仍需明确确认。跟随模式为每个 MCP 客户端会话单独授权唯一项目根；Codex 使用明确客户端启动适配器，Claude Code 使用 CLAUDE_PROJECT_DIR／MCP roots，未得到唯一目录时远端继续且本地功能给出原因。预览具体目标与完整条目后默认 Back，必须明确选择 Apply 动作，--yes 不跳过。Esc 返回上一步，保存后的 Esc 只关闭成功页；向导不改变当前工作台或默认账号。只操作自有条目、冲突拒绝覆盖及恢复规则见 [接入说明](mcp-client-setup.md#12-保留设置冲突与恢复)。连接检查仅初始化及发现工具，不证明真实客户端 UI／审批或远端身份已验收。
 
 完整命令／缺参表、按键、会话及宿主记录见 [p5-terminal-experience.md](p5-terminal-experience.md)。菜单由实际注册命令树生成，动作使用独立参数容器和共享应用服务；MCP 不从持续终端菜单启动。
 

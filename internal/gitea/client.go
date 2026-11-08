@@ -29,6 +29,8 @@ type Options struct {
 	MaxResponseBytes int64
 	ReadRetries      int
 	Authenticate     func(*http.Request) error
+	// OnWrite 在一次非读取发送前通知入口，不包含地址、请求体或认证材料。
+	OnWrite func()
 }
 
 // Client 固定请求实例根地址并维护独立的读取及写入连接池。
@@ -168,6 +170,9 @@ func (c *Client) Do(ctx context.Context, spec Request) (result *Response, return
 			transport = c.write
 			request.GetBody = nil
 		}
+		if !read && c.options.OnWrite != nil {
+			c.options.OnWrite()
+		}
 		response, requestErr := transport.Do(request)
 		retry := attempt+1 < attempts && ctx.Err() == nil && (requestErr != nil ||
 			response.StatusCode == 502 || response.StatusCode == 503 || response.StatusCode == 504)
@@ -216,6 +221,16 @@ func (c *Client) redirect(request *http.Request, via []*http.Request) error {
 		!safePath(request.URL.EscapedPath()) ||
 		(request.URL.Path != c.root.Path && !strings.HasPrefix(request.URL.Path, c.root.Path+"/")) {
 		return http.ErrUseLastResponse
+	}
+	return nil
+}
+
+// ValidatePath 校验相对于实例 API 根的请求路径，不执行网络访问。
+// 拒绝绝对 URL、认证地址、内嵌查询和多重编码逃逸；query 必须单独提供。
+func ValidatePath(path string) error {
+	resource, err := url.Parse(path)
+	if !safePath(path) || err != nil || resource.IsAbs() || resource.Host != "" || resource.RawQuery != "" || resource.Fragment != "" || strings.HasPrefix(path, "//") {
+		return app.Wrap(app.InvalidArgument, "Use an API-relative path without traversal, embedded query, or an absolute URL.", err)
 	}
 	return nil
 }

@@ -454,13 +454,15 @@ Git helper 查询使用所选 remote 的原始凭证上下文，并遵守 Git �
 
 ## 9. MCP 服务
 
+Home 的 MCP integrations 负责四客户端的配置管理，不承载长驻协议服务。internal/mcpintegration 隔离客户端格式、条目托管、并发快照／备份／原子替换和临时 stdio 检查；internal/cli/mcp_integrations.go 只负责逐步输入和明确确认。配置修改不调用远端 API，不保存 token 或改写客户端批准策略；JSON／JSONC 精确编辑成员，Codex 通过独立 TOML 块管理，完整语法验证新增锁定 github.com/pelletier/go-toml/v2 v2.2.4，现有依赖和 Go 1.27.3 不升级。操作、所有权及恢复边界见 [接入说明](mcp-client-setup.md)。
+
 首版工具及严格输入、输出方案见 [mcp-design.md](mcp-design.md)。同一程序以 sotea mcp serve 提供本地 stdio，客户端启动子进程，stdout 仅承载协议，EOF 清理退出；不依赖菜单进程，也不开放 HTTP 守护服务。
 
 默认只读，--allow-write 显式提供 prepare / commit / status 工具；--allow-raw-api 单独开放通用 API，写请求仍需要写权限开关。写入先准备明确目标及变更，由客户端展示和按其审批机制提交；服务端不能将确认 token 或工具 annotations 视作真人批准证明。实际 Gitea 权限始终生效。
 
-所有当前业务命令均有对应读取工具或写入 action；本地固定 Git 查询和附件上传需授权工作目录，不开放任意 shell / Git 写操作。MCP 通过显式参数或已保存的唯一上下文调用共享应用服务，缺参返回错误，不读取协议 stdin 做登录或选择。客户端工作目录不能假定为用户项目，配置需给 --workdir 或工具目标。
+所有当前业务命令均有对应读取工具或写入 action；本地固定 Git 查询和附件上传需授权工作目录，不开放任意 shell / Git 写操作。MCP 通过显式参数或已保存的唯一上下文调用共享应用服务，缺参返回错误，不读取协议 stdin 做登录或选择。客户端工作目录默认不能假定为用户项目；Follow client workspace 通过显式 Codex／Claude 适配器或 MCP roots 为每个会话建立授权根，固定目录使用 --workdir。多根／缺失根不阻断远端业务，根变化使本地绑定和旧计划失效，详细边界见 MCP 设计第 12 节。
 
-工具错误、部分完成、结果未知、重复提交、跨进程限制、Schema 和各客户端验收均在专门设计中明确；P2 已交付一个只读诊断工具原型，严格 Schema／stdio／EOF 通过；完整工具及真实客户端结果仍待后续阶段。
+工具错误、部分完成、结果未知、重复提交、跨进程限制、Schema 和各客户端验收均在专门设计中明确。P6 已交付 32 工具／21 action、严格 Schema、进程计划与授权文件快照，自动验证及七版本代表性链路通过；Codex 实际转发和 Claude Code 健康检查有部分证据，四客户端完整 UI 与真实目标平台仍待实测，见 [P6 记录](p6-mcp.md)。
 
 ## 10. 错误、输出与可观测性
 
@@ -566,3 +568,12 @@ MOD-11／12／13 统一复用 pageHeader、frame、choiceRows、Input 与 Notice
 标量键通过本地field标记及FieldWriter携带可信位置，Session保存fieldSpan并与Drain后的正文一同匹配，渲染时只对键应用辅助色，不从远端空格或文本推断键值。远端控制符清理、不完整预览阻断和2MiB预算保持。Markdown与内联字段样式可组合，机器出口不接收样式元数据。
 
 底部位置由本地命令入口／页面标题生成导航路径，菜单切换／结果展示更新，组名附加在末尾；location角色为绿色普通字重。选择器复用同一底部位置行。active-tab使用粗体、深蓝背景和留白，未激活项弱化，无竖线／方括号；NO_COLOR改为圆点标记。窄屏优先活动标签及相邻名称，不改变切组和确认语义。
+
+
+### P6 实现状态（2026-11-08）
+
+完整 MCP 已替代 P2 单诊断原型。CLI／MCP 复用 internal/app/session 的上下文、认证组合和版本服务，原始 API 请求／正文／multipart 编排提取到 internal/app/api；业务读取及原领域 Prepare／Commit 复用既有应用服务。MCP 只负责协议适配、入口授权、计划索引／去重／状态、最终消息预算和进程资源；不调用 CLI RunE 或解析终端输出。
+
+文件授权通过 os.Root 接到共享服务的实际打开位置，提交重验后发送固定内容快照；不把普通路径预检或同一文件句柄当成足够的内容固定保证。专用业务写入和原始 API 写入的并发保护范围分别遵循 MCP 设计，不声称对任意原始路径提供仓库状态锁。
+
+同一最终产物已通过全量 test／vet、风险包 race、三目标构建、七版本真实 stdio 及部分实际客户端验证，具体记录见 [p6-mcp.md](p6-mcp.md)和 [mcp-client-setup.md](mcp-client-setup.md)。前述 P2／P3 历史状态不能用于判断当前工具可用性；Windows 10／11、目标 macOS 和四客户端完整 UI 缺项仍待验收。

@@ -2,8 +2,6 @@ package cli
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
+	"github.com/Spring-Ocean/gitea-cli-so/internal/app/session"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app/write"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/auth"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/compat"
@@ -181,18 +180,16 @@ func (r *runtime) resolve(command *cobra.Command, input target.Input, allowPromp
 		return target.Target{}, config.Snapshot{}, auth.Service{}, err
 	}
 	store := config.Store{Path: path}
-	snapshot, err := store.Load(command.Context())
 	service := auth.Service{
 		Store:    store,
 		Vault:    auth.SystemVault{},
 		Git:      git.Runner{},
 		OnSecret: r.options.redactor.Add,
 	}
-	if err != nil {
-		return target.Target{}, snapshot, service, err
-	}
+	environment := session.Environment{Authentication: service, Cache: &r.cache, Locks: &r.writes, CAFile: r.options.caFile, Proxy: r.options.proxy}
 	for {
-		t, resolveErr := target.Resolve(command.Context(), input, snapshot.Config, service.Git, nil)
+		state, resolveErr := environment.Resolve(command.Context(), input)
+		t, snapshot := state.Target, state.Snapshot
 		if resolveErr == nil {
 			if r.options.browseScope != nil {
 				if err := r.options.browseScope.check(t, snapshot); err != nil {
@@ -340,46 +337,8 @@ func dataResult(t target.Target, data any, err error) app.Result {
 // versionInfo 复用身份边界与版本缓存，缓存键不保存 token 原文。
 // 配置、账号、环境 token 或 CA 文件内容变化都会选择新键，refresh 可显式绕过缓存。
 func (r *runtime) versionInfo(ctx context.Context, t target.Target, snapshot config.Snapshot, service auth.Service, refresh bool) (compat.Info, error) {
-	var client *gitea.Client
-	var err error
-	if t.Registered {
-		client, t, err = service.Open(ctx, t, true)
-	} else {
-		client, err = gitea.New(gitea.Options{
-			BaseURL:  t.Instance.URL,
-			CAFile:   t.Instance.CAPath,
-			ProxyURL: t.Instance.Proxy,
-		})
-	}
-	if err != nil {
-		return compat.Info{}, err
-	}
-	defer client.Close()
-	ca := []byte{}
-	if t.Instance.CAPath != "" {
-		ca, err = os.ReadFile(t.Instance.CAPath)
-		if err != nil {
-			return compat.Info{}, app.Wrap(app.TLSError, "Unable to read the configured CA file.", err)
-		}
-	}
-	token := ""
-	if t.Registered {
-		token = os.Getenv("SOTEA_TOKEN")
-	}
-	fingerprint := sha256.Sum256([]byte(token))
-	caFingerprint := sha256.Sum256(ca)
-	key := strings.Join([]string{
-		t.Instance.URL,
-		t.Account,
-		snapshot.RevisionKey(),
-		t.Instance.Proxy,
-		t.Instance.CAPath,
-		hex.EncodeToString(caFingerprint[:]),
-		hex.EncodeToString(fingerprint[:]),
-	}, "\x00")
-	return r.cache.Get(ctx, key, refresh, func(ctx context.Context) (compat.Info, error) {
-		return compat.Detect(ctx, client, t.Instance.URL)
-	})
+	environment := session.Environment{Authentication: service, Cache: &r.cache}
+	return environment.Version(ctx, session.State{Target: t, Snapshot: snapshot, Auth: service}, refresh)
 }
 
 // secureToken 从实际终端读取不回显 token，不接受命令行明文参数。

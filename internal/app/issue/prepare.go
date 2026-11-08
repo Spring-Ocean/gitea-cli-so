@@ -352,3 +352,20 @@ func targetName(number int64) string {
 	}
 	return strconv.FormatInt(number, 10)
 }
+
+// MemoryBytes 估算计划持有的序列化意图与完整前置快照大小，供入口限制缓存。
+// 不返回快照内容或凭证；编码失败应拒绝注册，额外预留结构体和索引开销。
+func (plan *Plan) MemoryBytes() (int, error) {
+	before := []Issue{}
+	for _, item := range plan.targets {
+		before = append(before, item.before)
+	}
+	encoded, err := json.Marshal(struct {
+		Request Request
+		Before  []Issue
+	}{Request: plan.request, Before: before})
+	if err != nil {
+		return 0, app.Wrap(app.IOError, "Unable to measure the prepared plan.", err)
+	}
+	return len(encoded)*2 + 4096, nil
+}

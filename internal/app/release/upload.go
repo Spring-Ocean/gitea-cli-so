@@ -58,8 +58,12 @@ func assetConflict(ctx context.Context, connection *write.Connection, id int64, 
 
 // upload 重开同一普通文件并复核摘要，再流式发送单个 multipart 附件。
 // 上传期间计算实际发送摘要，接受后文件变化保留附件证据并报告部分完成。
-func upload(ctx context.Context, connection *write.Connection, plan *Plan, value Release, execution write.Execution) (write.Execution, app.Status, error) {
-	file, err := fileinput.Open(plan.request.File)
+func (s Service) upload(ctx context.Context, connection *write.Connection, plan *Plan, value Release, execution write.Execution) (write.Execution, app.Status, error) {
+	opener := s.OpenInput
+	if opener == nil {
+		opener = fileinput.Open
+	}
+	file, err := opener(plan.request.File)
 	if err != nil {
 		return write.Step(execution, "file", err)
 	}
@@ -70,6 +74,23 @@ func upload(ctx context.Context, connection *write.Connection, plan *Plan, value
 	}
 	if err := assetConflict(ctx, connection, value.ID, plan.request.Name); err != nil {
 		return write.Step(execution, "asset_name", errors.Join(err, file.Close()))
+	}
+	cleanupFrozen := func() error {
+		return nil
+	}
+	if s.FreezeInput != nil {
+		frozen, cleanup, freezeErr := s.FreezeInput(ctx, file)
+		sourceCloseErr := file.Close()
+		if freezeErr != nil || sourceCloseErr != nil {
+			cleanupErr := cleanup()
+			return write.Step(execution, "snapshot", errors.Join(freezeErr, sourceCloseErr, cleanupErr))
+		}
+		cleanupFrozen = cleanup
+		file = frozen
+		frozenSnapshot, _, inspectErr := inspectFile(ctx, file)
+		if inspectErr != nil || frozenSnapshot.Size != plan.file.Size || frozenSnapshot.SHA256 != plan.file.SHA256 {
+			return write.Step(execution, "snapshot", app.Wrap(app.PreconditionChanged, "The frozen content differs from the confirmed file.", errors.Join(inspectErr, cleanupFrozen())))
+		}
 	}
 	reader, writer := io.Pipe()
 	multipartWriter := multipart.NewWriter(writer)
@@ -111,7 +132,7 @@ func upload(ctx context.Context, connection *write.Connection, plan *Plan, value
 	pipeErr := reader.Close()
 	producerErr := <-done
 	finalSnapshot, _, inspectErr := inspectFile(ctx, file)
-	closeErr := file.Close()
+	closeErr := errors.Join(file.Close(), cleanupFrozen())
 	fileErr := errors.Join(pipeErr, producerErr, inspectErr, closeErr)
 	if sendErr != nil {
 		return write.Step(execution, "upload", sendErr)
@@ -127,7 +148,11 @@ func upload(ctx context.Context, connection *write.Connection, plan *Plan, value
 	if err != nil {
 		return write.Step(execution, "result", err)
 	}
-	if fileErr != nil || !write.Same(finalSnapshot, plan.file) {
+	sameContent := write.Same(finalSnapshot, plan.file)
+	if s.FreezeInput != nil {
+		sameContent = finalSnapshot.Size == plan.file.Size && finalSnapshot.SHA256 == plan.file.SHA256
+	}
+	if fileErr != nil || !sameContent {
 		return write.Step(execution, "verify_file", app.Wrap(app.PartialFailure, "The attachment was created, but the source file changed or could not be verified. Inspect the returned attachment; do not upload again automatically.", fileErr))
 	}
 	var verified Asset

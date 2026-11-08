@@ -2,20 +2,19 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
+	rawapi "github.com/Spring-Ocean/gitea-cli-so/internal/app/api"
 	"github.com/Spring-Ocean/gitea-cli-so/internal/gitea"
 	"github.com/spf13/cobra"
 )
@@ -117,7 +116,7 @@ func (r *runtime) runAPI(command *cobra.Command, path string, options *apiOption
 			return err
 		}
 	}
-	body, contentType, cleanup, err := options.body(command.Flags().Changed("data"))
+	body, contentType, cleanup, err := options.bodyContext(command.Context(), command.Flags().Changed("data"))
 	if err != nil {
 		return err
 	}
@@ -139,25 +138,12 @@ func (r *runtime) runAPI(command *cobra.Command, path string, options *apiOption
 		Timeout:          options.timeout,
 		MaxResponseBytes: options.maxResponse,
 	}
-	var client *gitea.Client
-	if t.Registered {
-		client, _, err = service.Open(command.Context(), t, read)
-	} else if os.Getenv("SOTEA_TOKEN") != "" || t.Account != "" {
-		return app.Wrap(app.AuthRequired, "Confirm this instance using auth login before sending credentials.", nil)
-	} else {
-		client, err = gitea.New(gitea.Options{
-			BaseURL:          t.Instance.URL,
-			CAFile:           t.Instance.CAPath,
-			ProxyURL:         t.Instance.Proxy,
-			Timeout:          options.timeout,
-			MaxResponseBytes: options.maxResponse,
-		})
-	}
+	client, _, err := rawapi.Open(command.Context(), service, t, read)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	response, err := client.Do(command.Context(), gitea.Request{
+	response, err := rawapi.Send(command.Context(), client, gitea.Request{
 		Method:  method,
 		Path:    path,
 		Query:   query,
@@ -237,112 +223,35 @@ func (r *runtime) runAPI(command *cobra.Command, path string, options *apiOption
 	return statusErr
 }
 
-// body 在不改变用户字节的前提下构造原始文件或流式 multipart 请求。
-// cleanup 必须调用，负责关闭管道、等待生产者及释放已打开文件。
+// body 为旧有调用方保留同步构造入口，实际能力由共享 API 服务提供。
+// CLI 运行使用 bodyContext 传递取消；测试的调用者仍须执行 cleanup。
 func (options *apiOptions) body(dataSet bool) (io.Reader, string, func() error, error) {
+	return options.bodyContext(context.Background(), dataSet)
+}
+
+// bodyContext 将 CLI 参数转换为类型化正文来源，不在应用层读取终端。
+// 互斥、普通文件、multipart 生命周期由共享入口处理，原始字节保持不变。
+func (options *apiOptions) bodyContext(ctx context.Context, dataSet bool) (io.Reader, string, func() error, error) {
+	source := rawapi.BodySource{File: options.input}
+	if dataSet {
+		source.Text = &options.data
+	}
 	nothing := func() error {
 		return nil
 	}
-	if dataSet {
-		if !utf8.ValidString(options.data) {
-			return nil, "", nothing, app.Wrap(app.InvalidArgument, "--data must contain valid UTF-8; use --input for arbitrary bytes.", nil)
-		}
-		contentType := "application/octet-stream"
-		if json.Valid([]byte(options.data)) {
-			contentType = "application/json"
-		}
-		return strings.NewReader(options.data), contentType, nothing, nil
-	}
-	if options.input != "" {
-		file, err := openRegular(options.input)
-		if err != nil {
-			return nil, "", nothing, err
-		}
-		return file, "application/octet-stream", func() error {
-			err := file.Close()
-			if errors.Is(err, os.ErrClosed) {
-				return nil
-			}
-			return err
-		}, nil
-	}
-	if len(options.uploads) == 0 {
-		return nil, "", nothing, nil
-	}
-	type upload struct {
-		field string
-		file  *os.File
-	}
-	files := []upload{}
-	closeFiles := func() error {
-		failures := []error{}
-		for _, item := range files {
-			failures = append(failures, item.file.Close())
-		}
-		return errors.Join(failures...)
-	}
 	for _, value := range options.form {
-		key, _, ok := strings.Cut(value, "=")
-		if !ok || key == "" || strings.ContainsAny(key, "\r\n\x00") {
-			return nil, "", nothing, app.Wrap(app.InvalidArgument, "Each --form must be NAME=VALUE with a valid field name.", nil)
+		name, text, ok := strings.Cut(value, "=")
+		if !ok || name == "" {
+			return nil, "", nothing, app.Wrap(app.InvalidArgument, "Each --form must be NAME=VALUE.", nil)
 		}
+		source.Fields = append(source.Fields, rawapi.Field{Name: name, Value: text})
 	}
 	for _, value := range options.uploads {
-		field, path, ok := strings.Cut(value, "=")
-		if !ok || field == "" || strings.ContainsAny(field, "\r\n\x00") {
-			return nil, "", nothing, app.Wrap(app.InvalidArgument, "Each --upload must be FIELD=FILE with a valid field name.", closeFiles())
+		name, path, ok := strings.Cut(value, "=")
+		if !ok || name == "" || path == "" {
+			return nil, "", nothing, app.Wrap(app.InvalidArgument, "Each --upload must be FIELD=FILE.", nil)
 		}
-		file, err := openRegular(path)
-		if err != nil {
-			return nil, "", nothing, errors.Join(err, closeFiles())
-		}
-		files = append(files, upload{
-			field: field,
-			file:  file,
-		})
+		source.Files = append(source.Files, rawapi.Upload{Field: name, Path: path})
 	}
-	reader, writer := io.Pipe()
-	multipartWriter := multipart.NewWriter(writer)
-	contentType := multipartWriter.FormDataContentType()
-	done := make(chan error, 1)
-	go func() {
-		var writeErr error
-		for _, value := range options.form {
-			key, field, ok := strings.Cut(value, "=")
-			if !ok || key == "" {
-				writeErr = app.Wrap(app.InvalidArgument, "Each --form must be NAME=VALUE.", nil)
-				break
-			}
-			if err := multipartWriter.WriteField(key, field); err != nil {
-				writeErr = err
-				break
-			}
-		}
-		if writeErr == nil {
-			for _, item := range files {
-				part, err := multipartWriter.CreateFormFile(item.field, filepath.Base(item.file.Name()))
-				if err != nil {
-					writeErr = err
-					break
-				}
-				if _, err := io.Copy(part, item.file); err != nil {
-					writeErr = err
-					break
-				}
-			}
-		}
-		if writeErr == nil {
-			writeErr = multipartWriter.Close()
-		}
-		closeErr := writer.CloseWithError(writeErr)
-		if errors.Is(writeErr, io.ErrClosedPipe) {
-			writeErr = nil
-		}
-		done <- errors.Join(writeErr, closeErr)
-	}()
-	return reader, contentType, func() error {
-		closeErr := reader.Close()
-		writeErr := <-done
-		return errors.Join(closeErr, writeErr, closeFiles())
-	}, nil
+	return rawapi.OpenBody(ctx, source)
 }

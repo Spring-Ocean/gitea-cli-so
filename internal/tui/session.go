@@ -44,11 +44,14 @@ type sectionSpan struct {
 	role  output.Style
 }
 
+// screenRequest 描述一次由会话拥有的页面请求及其返回通道。
+// initialFocus 非空时覆盖导航历史，用于显式默认项或安全确认焦点。
 type screenRequest struct {
 	kind         string
 	title        string
 	body         string
 	choices      []Choice
+	initialFocus *string
 	provider     Provider
 	ctx          context.Context
 	multi        bool
@@ -280,6 +283,18 @@ func (s *Session) Navigate(ctx context.Context, title string, choices []Choice) 
 	return reply.text, err
 }
 
+// NavigateWithDefault 以明确的默认 ID 展示单层菜单，覆盖该页历史焦点。
+// 默认 ID 不存在或为空时选择首项；Esc 返回取消，不修改业务设置，choices 由调用方拥有。
+func (s *Session) NavigateWithDefault(ctx context.Context, title string, choices []Choice, selected string) (string, error) {
+	reply, err := s.request(ctx, screenRequest{
+		kind:         "navigate",
+		title:        title,
+		choices:      choices,
+		initialFocus: &selected,
+	})
+	return reply.text, err
+}
+
 // Prompt 在持续界面读取一行，空行和首尾空白保持原始语义。
 // secret 时完全隐藏输入；body 中的确认预览支持滚动，不把 Esc 当空值。
 func (s *Session) Prompt(ctx context.Context, title, body string, secret bool) (string, error) {
@@ -436,8 +451,12 @@ func (m sessionModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			m.request.reply <- screenReply{}
 			m.request.reply = nil
 		case "navigate", "notice":
+			selected := m.focus[value.title]
+			if value.initialFocus != nil {
+				selected = *value.initialFocus
+			}
 			for index, choice := range value.choices {
-				if choice.ID == m.focus[value.title] {
+				if choice.ID == selected {
 					m.cursor = index
 				}
 			}

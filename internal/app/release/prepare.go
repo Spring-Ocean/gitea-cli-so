@@ -144,7 +144,11 @@ func (s Service) Prepare(ctx context.Context, input Request) (*Plan, error) {
 		if err := assetConflict(ctx, connection, current.ID, request.Name); err != nil {
 			return nil, err
 		}
-		file, err := fileinput.Open(request.File)
+		opener := s.OpenInput
+		if opener == nil {
+			opener = fileinput.Open
+		}
+		file, err := opener(request.File)
 		if err != nil {
 			return nil, err
 		}
@@ -320,4 +324,18 @@ func (reader *contextReader) Read(buffer []byte) (int, error) {
 		return 0, err
 	}
 	return reader.reader.Read(buffer)
+}
+
+// MemoryBytes 估算 Release 计划快照与请求占用，文件正文不持久保存在计划中。
+// 返回值另含固定对象开销；编码失败时入口不得发放可提交计划。
+func (plan *Plan) MemoryBytes() (int, error) {
+	preview, err := plan.Preview()
+	if err != nil {
+		return 0, err
+	}
+	encoded, err := json.Marshal(preview)
+	if err != nil {
+		return 0, app.Wrap(app.IOError, "Unable to measure the release plan.", err)
+	}
+	return len(encoded)*2 + 4096, nil
 }

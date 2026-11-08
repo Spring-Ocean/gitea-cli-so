@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "planned_not_implemented",
+  "status": "implementation_available_pending_full_platform_and_client_acceptance",
   "groups": [
     {
       "module": "MOD-02",
@@ -20,7 +20,8 @@
         "P1-07",
         "P1-11",
         "P5-09",
-        "P6-12"
+        "P6-12",
+        "P6-23"
       ]
     },
     {
@@ -90,12 +91,17 @@
         "sotea_commit_list",
         "sotea_commit_status",
         "sotea_label_list",
-        "sotea_milestone_list"
+        "sotea_milestone_list",
+        "sotea_repo_assignee_list",
+        "sotea_account_repo_list",
+        "sotea_account_org_list",
+        "sotea_org_repo_list"
       ],
       "actions": [],
       "tasks": [
         "P2-12",
-        "P6-04"
+        "P6-04",
+        "P6-17"
       ]
     },
     {
@@ -148,7 +154,8 @@
         "P3-09",
         "P3-10",
         "P3-13",
-        "P6-05"
+        "P6-05",
+        "P6-20"
       ]
     },
     {
@@ -204,7 +211,8 @@
         "P4-16",
         "P4-17",
         "P4-18",
-        "P6-05"
+        "P6-05",
+        "P6-21"
       ]
     },
     {
@@ -240,7 +248,8 @@
         "P4-16",
         "P4-17",
         "P4-18",
-        "P6-05"
+        "P6-05",
+        "P6-22"
       ]
     },
     {
@@ -325,7 +334,19 @@
         "P6-13",
         "P6-14",
         "P6-15",
-        "P6-16"
+        "P6-16",
+        "P6-17",
+        "P6-18",
+        "P6-19",
+        "P6-20",
+        "P6-21",
+        "P6-22",
+        "P6-23",
+        "P6-24",
+        "P6-25",
+        "P6-26",
+        "P6-27",
+        "P6-28"
       ]
     }
   ],
