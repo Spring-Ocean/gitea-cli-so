@@ -1,0 +1,224 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag, exactly matching cmd/sotea/VERSION
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  GOTOOLCHAIN: local
+  GOFLAGS: -mod=readonly
+  GIT_TERMINAL_PROMPT: '0'
+  SOTEA_TEST_SYSTEM_VAULT: '0'
+  SOTEA_UPDATE_CHECK: never
+
+jobs:
+  package:
+    name: Validate, test and package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      commit: ${{ steps.version.outputs.commit }}
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - name: Validate release tag and source version
+        id: version
+        run: python3 scripts/release.py validate --tag "$RELEASE_TAG"
+      - name: Verify source, workflows and dependencies
+        shell: bash
+        run: |
+          git diff --check
+          mapfile -d '' files < <(git ls-files -z '*.go')
+          test -z "$(gofmt -l "${files[@]}")"
+          go mod download
+          go mod verify
+          git diff --exit-code -- go.mod go.sum
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          sh -n scripts/install.sh
+          shellcheck --shell=sh scripts/install.sh
+          python3 scripts/test-installers.py
+          python3 scripts/test-release.py
+      - name: Static checks and race tests
+        run: |
+          go vet ./...
+          go test -race -count=1 -timeout=5m ./...
+      - name: Build final release archives
+        env:
+          CGO_ENABLED: '0'
+        run: python3 scripts/release.py build --tag "$RELEASE_TAG"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets
+          path: dist/release/*
+          if-no-files-found: error
+          retention-days: 14
+
+  native:
+    name: Verify final archive (${{ matrix.target }})
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: darwin-arm64
+          - runner: macos-15-intel
+            target: darwin-amd64
+          - runner: windows-2025
+            target: windows-amd64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    env:
+      RELEASE_TAG: ${{ needs.package.outputs.tag }}
+      RELEASE_TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.package.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: dist/release
+      - name: Native regression tests
+        run: go test -count=1 -timeout=5m ./...
+      - name: Verify packaged executable
+        run: python3 scripts/release.py native --tag "$RELEASE_TAG" --target "$RELEASE_TARGET"
+      - name: Interactive workspace and MCP smoke
+        if: matrix.target == 'darwin-arm64'
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import tarfile
+
+          folder = 'sotea-' + os.environ['RELEASE_TAG'] + '-darwin-arm64'
+          destination = Path('dist/release-native/sotea')
+          destination.parent.mkdir(parents=True, exist_ok=True)
+          with tarfile.open('dist/release/' + folder + '.tar.gz', 'r:gz') as archive:
+              destination.write_bytes(archive.extractfile(folder + '/sotea').read())
+          destination.chmod(0o755)
+          PY
+          python3 scripts/p5-terminal-smoke.py --binary dist/release-native/sotea
+          python3 scripts/p6-integration-setup-smoke.py \
+            --binary dist/release-native/sotea \
+            --clients Codex --scopes project --follow \
+            --result dist/release-native/mcp-integration-result.json
+      - name: macOS installer smoke
+        if: runner.os == 'macOS'
+        run: python3 scripts/test-installers.py --directory dist/release --tag "$RELEASE_TAG"
+      - name: Windows PowerShell 5.1 installer smoke
+        if: runner.os == 'Windows'
+        run: python3 scripts/test-installers.py --directory dist/release --tag "$RELEASE_TAG" --powershell powershell.exe
+      - name: PowerShell installer smoke
+        if: runner.os == 'Windows'
+        run: python3 scripts/test-installers.py --directory dist/release --tag "$RELEASE_TAG" --powershell pwsh.exe
+
+  publish:
+    name: Publish verified release
+    needs: [package, native]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.package.outputs.tag }}
+      RELEASE_COMMIT: ${{ needs.package.outputs.commit }}
+      PRERELEASE: ${{ needs.package.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.package.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: dist/release
+      - name: Recheck assets and tag
+        run: |
+          python3 scripts/release.py verify --tag "$RELEASE_TAG"
+          git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$RELEASE_COMMIT"
+      - name: Create draft and upload complete assets
+        shell: bash
+        run: |
+          gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" > dist/existing-releases.json
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          pages = json.loads(Path('dist/existing-releases.json').read_text())
+          if any(release['tag_name'] == os.environ['RELEASE_TAG'] for page in pages for release in page):
+              raise SystemExit('A release or draft already exists for this tag. Existing assets will not be changed.')
+          PY
+          flags=(--draft --verify-tag --generate-notes --title "sotea $RELEASE_TAG")
+          if [[ "$PRERELEASE" == true ]]; then
+            flags+=(--prerelease)
+          fi
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          template = Path('docs/release-notes.md').read_text()
+          notes = template.replace('{{RELEASE_TAG}}', os.environ['RELEASE_TAG'])
+          if '{{' in notes or '}}' in notes:
+              raise SystemExit('Release notes contain unresolved placeholders.')
+          Path('dist/release-notes.md').write_text(notes)
+          PY
+          gh release create "$RELEASE_TAG" "${flags[@]}" --notes-file dist/release-notes.md
+          gh release upload "$RELEASE_TAG" dist/release/*
+      - name: Verify actual uploaded bytes
+        run: |
+          gh release download "$RELEASE_TAG" --dir dist/published
+          cmp dist/release/SHA256SUMS dist/published/SHA256SUMS
+          python3 scripts/release.py verify --tag "$RELEASE_TAG" --directory dist/published
+      - name: Publish release
+        shell: bash
+        run: |
+          if [[ "$PRERELEASE" == true ]]; then
+            gh release edit "$RELEASE_TAG" --draft=false --latest=false
+          else
+            gh release edit "$RELEASE_TAG" --draft=false --latest
+          fi

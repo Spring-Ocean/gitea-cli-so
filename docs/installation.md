@@ -10,7 +10,38 @@ sotea 的一个可执行文件同时提供 CLI、交互菜单和本地 MCP 服�
 | darwin-amd64 | Intel Mac | tar.gz |
 | windows-amd64 | Windows 10 22H2／Windows 11，Intel 或 AMD 64 位 | zip |
 
-支持范围与实际验证状态见 [兼容性说明](compatibility.md)。目前尚未正式发布，下载渠道和签名策略仍待落实；内部验收包由维护者提供。包名包含具体版本、平台，候选包还可能包含打包修订号，请以实际文件为准。
+支持范围与实际验证状态见 [兼容性说明](compatibility.md)。公开安装包通过仓库 GitHub Releases 的 Assets 分发；首次发布带附件的 Release 后，下列下载命令才可使用。GitHub 自动生成的 Source code 是源码，不是预编译程序。包名包含具体版本、平台，历史内部候选还可能包含打包修订号，请以实际文件为准。
+
+## 脚本首次安装
+
+安装脚本自动选择架构，从固定仓库下载压缩包和 SHA256SUMS，核对 SHA-256 与程序版本，再安装到用户目录。无需管理员权限；不覆盖已有程序，已有安装使用 `sotea update install`。无版本参数时只选择最新稳定版；目前为 RC，必须显式指定 `v0.1.0-rc.1`。没有稳定版时会清晰报错，不悄悄切换到 RC。
+
+macOS，在 Terminal／iTerm2 复制整段执行：
+
+```sh
+(
+    set -e
+    installer=$(mktemp)
+    trap 'rm -f "$installer"' EXIT
+    curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
+        https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.1/install.sh \
+        -o "$installer"
+    sh "$installer" --version v0.1.0-rc.1
+)
+```
+
+默认安装至 `~/.local/bin/sotea`，为 zsh 的 `~/.zshrc` 或 bash 已有的登录配置追加一条 PATH 设置，不改写原有内容；bash 没有登录配置时创建 `~/.bash_profile`。重开终端后执行 `sotea`；当前窗口也可直接执行 `~/.local/bin/sotea`。`--no-modify-path` 跳过设置；`--install-dir /absolute/path` 使用自定义目录，自行配置 PATH。
+
+Windows，在 64 位 Windows PowerShell 5.1 或 PowerShell 中执行：
+
+```powershell
+& ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri `
+    'https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.1/install.ps1').Content)) -Version v0.1.0-rc.1
+```
+
+上例在当前 PowerShell 中执行从对应 Release 取得的脚本，不更改系统执行策略。默认安装至 `%LOCALAPPDATA%\Programs\sotea\sotea.exe`，保留用户 PATH 原有项并添加安装目录，同时更新当前窗口 PATH。`-NoModifyPath` 跳过；`-InstallDirectory 'C:\your\directory'` 自定义目录。仅支持 amd64，不承诺 Windows ARM64。
+
+也可先从同一 Release 下载脚本，审阅后以 `sh ./install.sh --version TAG` 或 `& .\install.ps1 -Version TAG` 执行；组织限制脚本执行时按组织策略操作。稳定版发布后，可将下载地址改为 `releases/latest/download/install.sh`／`install.ps1` 并省略版本参数。离线环境或不希望执行安装脚本时使用下方手动步骤。
 
 ## 校验与解压
 
@@ -127,7 +158,7 @@ if ($LASTEXITCODE -ne 0) {
 
 1. 在 **MCP integrations** 中移除各客户端的自有 sotea 接入项，并在客户端停止对应服务。
 2. 若要清理保存的账号，逐个执行 `sotea --instance team --account username auth logout`。这会清理 sotea 自有引用和凭证，不会撤销 Gitea 服务端 token。
-3. 删除安装的程序、自己保留的候选和程序备份，从用户 PATH 移除对应目录。
+3. 删除安装的程序、自己保留的候选和程序备份，从用户 PATH 移除对应目录；sh 安装器追加的 `# sotea user installation` 及下一行可从对应 shell 配置中移除。
 4. 配置默认保留；决定彻底清理时，先完成账号退出，再删除自己的 sotea 配置目录。
 
 共享 Git helper 凭证默认保留。只有明确需要时使用 `auth logout --forget-git` 并额外确认；环境 token 需要在宿主环境中移除并重启相关进程。配置位置和凭证范围见 [配置与认证](configuration.md)。

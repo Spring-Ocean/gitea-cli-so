@@ -3,6 +3,7 @@
 [![Version: v0.1.0-rc.1](https://img.shields.io/badge/Version-v0.1.0--rc.1-blue?style=flat-square)](cmd/sotea/VERSION)
 [![Status: Pre-release](https://img.shields.io/badge/Status-Pre--release-orange?style=flat-square)](docs/compatibility.md#发布状态与问题反馈)
 [![CI](https://github.com/Spring-Ocean/gitea-cli-so/actions/workflows/ci.yml/badge.svg)](https://github.com/Spring-Ocean/gitea-cli-so/actions/workflows/ci.yml)
+[![Release](https://github.com/Spring-Ocean/gitea-cli-so/actions/workflows/release.yml/badge.svg)](https://github.com/Spring-Ocean/gitea-cli-so/actions/workflows/release.yml)
 [![Go: 1.27.3](https://img.shields.io/badge/Go-1.27.3-00ADD8?style=flat-square&logo=go&logoColor=white)](go.mod)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 [![CLI and TUI](https://img.shields.io/badge/Interface-CLI%20%2B%20TUI-4B5563?style=flat-square)](docs/usage.md)
@@ -94,6 +95,35 @@ Choose a client, instance, account, local access mode, and permissions step by s
 安装对应平台的预编译程序，放入 PATH；运行时无需 Go。安装、升级和卸载步骤见 [安装说明](docs/installation.md)。
 
 Install the prebuilt executable for your platform and add it to PATH. Go is not required at runtime. See the [installation guide](docs/installation.md) for installation, upgrades, and removal.
+
+首个带附件的 Release 发布后，可复制以下脚本首次安装当前 RC；自动选择平台、校验 SHA-256，并配置用户 PATH。已有程序不会被覆盖。默认不传版本参数时安装最新稳定版，RC 必须指定版本。
+
+Once the first release with assets is published, use the commands below to install this RC. Installers select the platform, verify SHA-256, and configure your user PATH. Existing installations are never overwritten. Without a version argument, installers select the latest stable release; an RC requires an explicit version.
+
+**macOS · Terminal / iTerm2**
+
+```sh
+(
+    set -e
+    installer=$(mktemp)
+    trap 'rm -f "$installer"' EXIT
+    curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
+        https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.1/install.sh \
+        -o "$installer"
+    sh "$installer" --version v0.1.0-rc.1
+)
+```
+
+**Windows · PowerShell 5.1 / PowerShell**
+
+```powershell
+& ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri `
+    'https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.1/install.ps1').Content)) -Version v0.1.0-rc.1
+```
+
+也可以手动下载对应平台压缩包和 SHA256SUMS，校验后安装。发布维护流程见 [Release 说明](docs/releases.md)。安装完成后，重新打开终端并执行：
+
+You can also download the platform archive and SHA256SUMS for manual verification and installation. Maintainers can follow the [release guide](docs/releases.md). After installation, open a new terminal and run:
 
 ```sh
 sotea version
