@@ -7,6 +7,7 @@
 ## 修复内容 / Fixes
 
 - **自动认证**：auto 按 SOTEA_GITHUB_TOKEN → GH_TOKEN → GITHUB_TOKEN → gh auth token --hostname github.com → Git HTTPS credential helper → 匿名的顺序查找。无需安装 gh 或 Git；查询在仓库外执行且禁止交互，有超时和输出限制。
+- **Windows PowerShell 5.1 helper**：固定子进程输入为无 BOM UTF-8，避免控制台编码污染 Git 凭证协议，查询后恢复原控制台编码。
 - **认证边界**：仅固定仓库的 GitHub Releases API 携带认证，附件及跳转保持匿名；不读取 Gitea token，不保存、记录或通过命令参数传递 token。
 - **匿名模式**：更新命令支持 --github-auth anonymous，macOS 安装脚本支持 --github-auth anonymous，Windows 支持 -GitHubAuth anonymous；环境变量 SOTEA_GITHUB_AUTH=anonymous 同时约束 Home、更新器和安装脚本。
 - **回退与限流**：401 单次匿名回退并提示，不删除共享凭证；403／429 不自动重试或轮换凭证。更新器显示可用的限流恢复信息，Home 继续遵守五小时冷却。
@@ -14,6 +15,7 @@
 - 保留 rc.4 的 HTTPS 写入 ALPN、Windows 原始字节 UTF-8 解码及 MCP 参数指引修复；旧公开标签和附件保持不变。
 
 - **Automatic authentication**: auto tries SOTEA_GITHUB_TOKEN → GH_TOKEN → GITHUB_TOKEN → gh auth token --hostname github.com → Git HTTPS credential helper → anonymous. Neither gh nor Git is required. Queries run outside repositories without interaction and with time/output limits.
+- **Windows PowerShell 5.1 helpers**: Use BOM-free UTF-8 subprocess input to avoid corrupting the Git credential protocol, and restore the original console input encoding after process creation.
 - **Authentication boundaries**: Only the fixed repository's GitHub Releases API receives authentication. Assets and redirects remain anonymous. Gitea tokens are never read; tokens are not saved, logged, or placed in process arguments.
 - **Anonymous mode**: Use --github-auth anonymous for updates and the macOS installer, or -GitHubAuth anonymous for the Windows installer. SOTEA_GITHUB_AUTH=anonymous also controls Home, updates, and installers.
 - **Fallback and rate limits**: A 401 triggers one anonymous retry with a warning, without deleting shared credentials. A 403/429 does not trigger automatic retries or credential rotation. The updater reports available reset information; Home retains its five-hour cooldown.

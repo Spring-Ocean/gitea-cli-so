@@ -55,12 +55,21 @@ try {
     $env:GIT_DIR = 'injected-repository'
     $env:GIT_CONFIG_COUNT = '99'
     $executable = [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
-    # 使用-File模拟从stdin读取协议的CLI，避免旧版-Command宿主预消费管道输入。
+    # 使用-File模拟从stdin读取协议的CLI，退出码区分环境和输入错误。
     # 文件只含固定合成检查，不依赖用户配置或执行策略更改。
     $childFile = Join-Path $temporary 'credential-child.ps1'
     [IO.File]::WriteAllText($childFile, 'if ($env:GIT_DIR -or $env:GIT_CONFIG_COUNT -or $env:GIT_TERMINAL_PROMPT -ne "0" -or $env:GCM_INTERACTIVE -ne "Never") { exit 2 }; if ([Console]::ReadLine() -ne "query") { exit 3 }; [Console]::Write("helper-fixture")')
     $childArguments = '-NoProfile -NonInteractive -File "' + $childFile + '"'
-    $queried = Invoke-CredentialQuery $executable $childArguments "query`n" $temporary
+    $originalEncoding = [Console]::InputEncoding
+    try {
+        # 强制有BOM的UTF8复现Framework默认stdin writer的头部污染。
+        # 查询必须无BOM且返回后恢复同一编码对象，不依赖runner默认设置。
+        $bomEncoding = [Text.UTF8Encoding]::new($true)
+        [Console]::InputEncoding = $bomEncoding
+        $queried = Invoke-CredentialQuery $executable $childArguments "query`n" $temporary
+        if ([Console]::InputEncoding.GetPreamble().Length -ne 3) { throw 'Console input encoding was not restored.' }
+    }
+    finally { [Console]::InputEncoding = $originalEncoding }
     if ($queried -cne 'helper-fixture') { throw 'Credential subprocess isolation failed.' }
     Write-Output 'PASS PowerShell credential subprocess isolation'
     foreach ($global:SoteaAuthScenario in @('dedicated', 'gh-env', 'github-env', 'anonymous', 'rejected')) {

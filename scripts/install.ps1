@@ -28,6 +28,7 @@ function Invoke-CredentialQuery([string]$Name, [string]$Arguments, [string]$Inpu
         $info.RedirectStandardInput = $true
         $info.RedirectStandardOutput = $true
         $info.RedirectStandardError = $true
+        $info.StandardOutputEncoding = [Text.UTF8Encoding]::new($false)
         foreach ($key in @($info.EnvironmentVariables.Keys)) {
             if ($key -like 'GIT_*') { $info.EnvironmentVariables.Remove($key) }
         }
@@ -36,7 +37,22 @@ function Invoke-CredentialQuery([string]$Name, [string]$Arguments, [string]$Inpu
         $info.EnvironmentVariables['GCM_INTERACTIVE'] = 'Never'
         $info.EnvironmentVariables['GH_PROMPT_DISABLED'] = '1'
         $process.StartInfo = $info
-        if (-not $process.Start()) { return '' }
+        # .NET Framework初始化stdin的AutoFlush会写入Console.InputEncoding的BOM。
+        # 新版指定单个进程编码，旧版仅在Start期间切换并立即恢复控制台编码。
+        $utf8 = [Text.UTF8Encoding]::new($false)
+        if ($info.PSObject.Properties['StandardInputEncoding']) {
+            $info.StandardInputEncoding = $utf8
+            $started = $process.Start()
+        }
+        else {
+            $previousInputEncoding = [Console]::InputEncoding
+            try {
+                [Console]::InputEncoding = $utf8
+                $started = $process.Start()
+            }
+            finally { [Console]::InputEncoding = $previousInputEncoding }
+        }
+        if (-not $started) { return '' }
         $credentialChars = New-Object char[] 16385
         $readOutput = $process.StandardOutput.ReadBlockAsync($credentialChars, 0, $credentialChars.Length)
         $process.StandardInput.Write($InputText)
