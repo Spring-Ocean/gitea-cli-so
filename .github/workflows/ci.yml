@@ -148,11 +148,11 @@ jobs:
           test "$(go env GOOS)-$(go env GOARCH)" = "$BUILD_TARGET"
       - name: Native tests
         run: go test -count=1 -timeout=5m ./...
-      - name: Check Windows installer syntax
+      - name: Check Windows installer files and documented command
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          foreach ($path in @('scripts/install.ps1', 'scripts/test-installers.ps1')) {
+          foreach ($path in @('scripts/install.ps1', 'scripts/test-installers.ps1', 'scripts/test-install-command.ps1')) {
             $tokens = $null
             $parseErrors = $null
             [System.Management.Automation.Language.Parser]::ParseFile(
@@ -162,6 +162,11 @@ jobs:
               throw ($parseErrors | Out-String)
             }
           }
+          & ./scripts/test-install-command.ps1
+      - name: Check PowerShell documented install command
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-install-command.ps1
       - name: Build and check executable
         env:
           CGO_ENABLED: '0'

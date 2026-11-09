@@ -19,10 +19,16 @@ function Invoke-WebRequest {
     Copy-Item -LiteralPath (Join-Path $env:SOTEA_INSTALL_FIXTURE $name) -Destination $OutFile
 }
 
-# Invoke-RestMethod 只模拟稳定发布解析，不提供任何远端任意 URL。
-# wrong-version 场景只改变报告标签，确保候选二进制验证阻断错误安装。
+# Invoke-RestMethod 模拟稳定发布解析与保留 BOM 的安装脚本下载。
+# 只允许固定标签的脚本或 latest API；文本场景直接执行发布说明中的原命令。
 function Invoke-RestMethod {
+    [CmdletBinding()]
     param([string]$Uri, [hashtable]$Headers, [int]$TimeoutSec)
+
+    $scriptUri = 'https://github.com/Spring-Ocean/gitea-cli-so/releases/download/' + $env:SOTEA_INSTALL_TAG + '/install.ps1'
+    if ($Uri -ceq $scriptUri -and $env:SOTEA_INSTALL_SCENARIO -eq 'downloaded-script') {
+        return [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes((Join-Path $PSScriptRoot 'install.ps1')))
+    }
     if ($Uri -cne 'https://api.github.com/repos/Spring-Ocean/gitea-cli-so/releases/latest') {
         throw 'Fixture API rejected.'
     }
@@ -71,7 +77,19 @@ try {
         $arguments.Version = $wrongTag
         $env:SOTEA_INSTALL_TAG = $wrongTag
     }
-    & (Join-Path $PSScriptRoot 'install.ps1') @arguments
+    if ($env:SOTEA_INSTALL_SCENARIO -eq 'downloaded-script') {
+        $template = [IO.File]::ReadAllText((Join-Path (Split-Path -Parent $PSScriptRoot) 'docs/release-notes.md'))
+        $blocks = [regex]::Matches($template, '(?s)```powershell\r?\n(.*?)\r?\n```')
+        $commands = @($blocks | Where-Object { $_.Groups[1].Value.Contains('/install.ps1') })
+        if ($commands.Count -ne 1) {
+            throw 'Expected one Windows install command in the release notes.'
+        }
+        $command = $commands[0].Groups[1].Value.Replace('{{RELEASE_TAG}}', $env:SOTEA_INSTALL_TAG)
+        & ([scriptblock]::Create($command + ' -InstallDirectory $env:SOTEA_INSTALL_TARGET -NoModifyPath'))
+    }
+    else {
+        & (Join-Path $PSScriptRoot 'install.ps1') @arguments
+    }
     exit 0
 }
 catch {

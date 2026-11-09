@@ -1,24 +1,28 @@
 ## 版本状态 / Release status
 
-**{{RELEASE_TAG}} 是基于 v0.1.0-rc.1 的小型修复预发布版，不是正式稳定版。** 本次重点修复 Codex MCP 配置向导误报配置冲突的问题；保留 rc.1 的标签、附件和历史说明。
+**{{RELEASE_TAG}} 是基于 v0.1.0-rc.2 的小型修复预发布版，不是正式稳定版。** 本次修复 Windows 一键安装命令的 BOM 解析问题；保留 rc.1／rc.2 的标签、附件和历史说明。
 
-**{{RELEASE_TAG}} is a small bug-fix prerelease based on v0.1.0-rc.1, not a stable release.** It fixes a false configuration conflict in the Codex MCP setup wizard. The rc.1 tag, assets, and release notes remain unchanged.
+**{{RELEASE_TAG}} is a small bug-fix prerelease based on v0.1.0-rc.2, not a stable release.** It fixes BOM parsing in the Windows one-command installer. The rc.1 and rc.2 tags, assets, and release notes remain unchanged.
 
 ## 修复内容 / Fixes
 
-- 修复 Codex 配置已有 `[mcp_servers]`、引号父表或点分键时，添加 sotea 因重复定义父表而报 `CONFIG_CONFLICT` 的问题。现在只追加 `[mcp_servers.sotea]`，保留原有服务器、注释和配置内容。
-- 保持旧版向导托管条目和所有权记录兼容，已有接入可继续更新；无需删除正常父表或其他服务器。
-- 真正无法扩展的配置布局继续拒绝写入，错误归类为 `CONFIG_ERROR`，提示检查配置文件，不再误报账号／仓库上下文改变。
+- 修复 `irm` 下载的脚本文本包含前导 UTF-8 BOM 时，`ScriptBlock.Create` 在 `[CmdletBinding()]`／`param` 处解析失败的问题。一键命令现在先执行 `.TrimStart([char]0xFEFF)`，再创建脚本块并传入版本参数。
+- 同步 README、安装指南和本次 Release 的 Windows 命令；安装脚本文件保留 BOM，继续兼容 Windows PowerShell 5.1 的直接文件执行方式，无需更改执行策略。
+- 为实际文档命令补充带 BOM／无 BOM 的解析、参数绑定和已有文件保护检查；Release 安装回归增加完整的下载文本执行路径。
 
-- Fix false `CONFIG_CONFLICT` errors when an existing Codex configuration defines `[mcp_servers]`, a quoted parent table, or dotted keys. The wizard now appends only `[mcp_servers.sotea]`, preserving other servers, comments, and settings.
-- Preserve compatibility with previously managed entries and ownership records so existing integrations can still be updated. Removing a valid parent table or another server is unnecessary.
-- Continue to reject layouts that cannot safely accept a separate table. These failures now use `CONFIG_ERROR` and configuration guidance instead of reporting an account or repository context change.
+- Fix parsing failures at `[CmdletBinding()]` / `param` when script text downloaded by `irm` contains a leading UTF-8 BOM. The command now applies `.TrimStart([char]0xFEFF)` before creating the script block and passing the version argument.
+- Update the Windows commands in the README, installation guide, and this release. The script file retains its BOM for direct execution in Windows PowerShell 5.1; changing execution policy is unnecessary.
+- Add checks of the actual documented commands with and without a BOM, including parameter binding and existing-file protection. Release regression checks now also cover installation through downloaded script text.
+
+rc.2 的 Codex MCP 配置父表修复继续包含在本版本中；本次不改变 CLI、TUI 或 MCP 的业务行为。
+
+This release retains the Codex MCP parent-table configuration fix from rc.2. CLI, TUI, and MCP business behavior is unchanged.
 
 ## 验证范围 / Validation scope
 
-本次验证覆盖 Go 测试、vet、受影响包 race、三目标构建，以及包含显式父表的 Codex 用户／项目向导安装、连接检查、更新和移除。回归还保护旧托管块升级、原文保留及内联容器拒绝。测试使用隔离目录与合成配置，不写入真实客户端配置或使用真实凭证。
+公开 rc.2 附件已复现原始解析错误；修正后的三处文档命令在本机 PowerShell 7 的带 BOM／无 BOM 六个场景中通过。CI 分别用 Windows PowerShell 5.1 和 PowerShell 执行这些真实命令。Release 工作流在三平台原生测试、最终包检查及两种 Windows shell 的完整安装回归通过后才公开附件。所有安装回归使用隔离目录与受控下载，不修改开发者真实安装、客户端配置或用户 PATH。
 
-Validation covers Go tests, vet, race checks for affected packages, three-target builds, and Codex user/project wizard installation, connection checks, updates, and removal with an explicit parent table. Regression checks also cover legacy managed entries, preservation of existing content, and rejection of closed inline containers. Tests use isolated directories and synthetic configurations, without modifying real client settings or using real credentials.
+The original parsing failure was reproduced using the public rc.2 asset. The corrected commands in all three documents passed six local PowerShell 7 scenarios with and without a BOM. CI executes those actual commands in Windows PowerShell 5.1 and PowerShell. The Release workflow publishes assets only after native tests on all three targets, final-archive checks, and full installer regression checks in both Windows shells pass. Installer tests use isolated directories and controlled downloads without changing the developer's installation, client settings, or user PATH.
 
 未修改 Gitea API 路径、认证或请求／响应契约，本次不重复七版本业务矩阵；已有兼容证据与下方真实平台／客户端待验收项分别保留。
 
@@ -49,7 +53,7 @@ curl -fsSL https://github.com/Spring-Ocean/gitea-cli-so/releases/download/{{RELE
 Windows · PowerShell 5.1 / PowerShell:
 
 ```powershell
-& ([scriptblock]::Create((irm -ErrorAction Stop https://github.com/Spring-Ocean/gitea-cli-so/releases/download/{{RELEASE_TAG}}/install.ps1))) -Version {{RELEASE_TAG}}
+& ([scriptblock]::Create((irm -ErrorAction Stop https://github.com/Spring-Ocean/gitea-cli-so/releases/download/{{RELEASE_TAG}}/install.ps1).TrimStart([char]0xFEFF))) -Version {{RELEASE_TAG}}
 ```
 
 ## 升级 / Upgrade
@@ -70,9 +74,9 @@ For an existing installation, run `sotea update check` and `sotea update install
 
 An earlier candidate passed representative CLI and MCP workflow regression checks against seven isolated Gitea versions: `28.3.0`, `1.27.3`, `1.26.4`, `1.25.5`, `1.24.7`, `1.23.8`, and `1.22.6`. This does not establish coverage of every endpoint, customized instance, or platform combination.
 
-Codex 和 Claude Code 只有部分真实客户端流程已验证；Cursor、VS Code 的真实工具调用，以及四种客户端完整的批准／取消 UI 仍待验收。rc.1 的公开下载、macOS arm64 首次安装和更新检查已有实测；本次产物及 rc.1 → rc.2 自动升级需绑定新版本独立复核。Windows Server 或 macOS 托管 runner 的结果不能代替目标桌面系统与终端实测。详见[兼容性与验证状态](https://github.com/Spring-Ocean/gitea-cli-so/blob/{{RELEASE_TAG}}/docs/compatibility.md)。
+Codex 和 Claude Code 只有部分真实客户端流程已验证；Cursor、VS Code 的真实工具调用，以及四种客户端完整的批准／取消 UI 仍待验收。rc.1／rc.2 的公开下载、macOS arm64 首次安装及 rc.1 → rc.2 自动升级已有实测；本次产物及 rc.2 → rc.3 自动升级需绑定新版本独立复核。Windows Server 或 macOS 托管 runner 的结果不能代替目标桌面系统与终端实测。详见[兼容性与验证状态](https://github.com/Spring-Ocean/gitea-cli-so/blob/{{RELEASE_TAG}}/docs/compatibility.md)。
 
-Only parts of the real Codex and Claude Code client flows have been validated. Real tool calls in Cursor and VS Code, and the complete approval/cancellation UI in all four clients, remain pending. Public downloads, first installation, and update checks were tested for rc.1 on macOS arm64; these new artifacts and the rc.1 to rc.2 automatic upgrade require separate verification. Results on hosted Windows Server or macOS runners do not replace testing on the target desktop systems and terminals. See [compatibility and validation status](https://github.com/Spring-Ocean/gitea-cli-so/blob/{{RELEASE_TAG}}/docs/compatibility.md).
+Only parts of the real Codex and Claude Code client flows have been validated. Real tool calls in Cursor and VS Code, and the complete approval/cancellation UI in all four clients, remain pending. Public downloads, first installation on macOS arm64, and the rc.1 to rc.2 automatic upgrade were tested for previous releases; these new artifacts and the rc.2 to rc.3 automatic upgrade require separate verification. Results on hosted Windows Server or macOS runners do not replace testing on the target desktop systems and terminals. See [compatibility and validation status](https://github.com/Spring-Ocean/gitea-cli-so/blob/{{RELEASE_TAG}}/docs/compatibility.md).
 
 ## 已知限制 / Known limitations
 

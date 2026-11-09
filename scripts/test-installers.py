@@ -160,13 +160,17 @@ if name == 'SHA256SUMS' and os.environ.get('SOTEA_INSTALL_RACE_TARGET'):
 def run_windows_tests(tag, release_directory, powershell):
     """用两种真实 PowerShell 执行 ZIP 安装及失败边界。
 
-    网络替身只接受固定 GitHub 来源，NoModifyPath 保证 CI 不更改真实注册表。
+    先验证实际文档的下载文本命令；网络替身和 NoModifyPath 隔离真实配置。
     """
+    subprocess.run([
+        powershell, "-NoProfile", "-NonInteractive", "-File", str(ROOT / "scripts/test-install-command.ps1"),
+        "-InstallerPath", str((release_directory / "install.ps1").resolve()),
+    ], check=True, timeout=60)
     folder = "sotea-" + tag + "-windows-amd64"
     with zipfile.ZipFile(release_directory / (folder + ".zip")) as archive:
         binary = archive.read(folder + "/sotea.exe")
     harness = ROOT / "scripts/test-installers.ps1"
-    for scenario in ("success", "checksum", "duplicate-checksum", "existing", "download", "latest", "wrong-version", "invalid-tag"):
+    for scenario in ("success", "downloaded-script", "checksum", "duplicate-checksum", "existing", "download", "latest", "wrong-version", "invalid-tag"):
         with tempfile.TemporaryDirectory(prefix="sotea-installer-tests-") as temporary:
             fixture = Path(temporary) / "fixture"
             make_fixture(fixture, tag, "windows-amd64", binary=binary, scenario=scenario)
@@ -179,7 +183,7 @@ def run_windows_tests(tag, release_directory, powershell):
                                SOTEA_INSTALL_SCENARIO=scenario, SOTEA_INSTALL_TARGET=str(install_directory))
             result = subprocess.run([powershell, "-NoProfile", "-NonInteractive", "-File", str(harness)],
                                     env=environment, capture_output=True, text=True, timeout=90)
-            success = scenario in {"success", "latest"}
+            success = scenario in {"success", "downloaded-script", "latest"}
             if (result.returncode == 0) != success:
                 raise AssertionError(scenario + ": " + result.stdout + result.stderr)
             if success:

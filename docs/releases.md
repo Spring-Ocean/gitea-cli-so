@@ -5,15 +5,15 @@
 ## 发布前
 
 1. 将本轮代码、脚本及公开文档提交并推送，确认 CI 通过。
-2. 将 `cmd/sotea/VERSION` 设置为目标版本。标签必须与文件完全一致，例如 `v0.1.0-rc.2`；不接受带 `+build` 的发布标签。
+2. 将 `cmd/sotea/VERSION` 设置为目标版本。标签必须与文件完全一致，例如 `v0.1.0-rc.3`；不接受带 `+build` 的发布标签。
 3. 核对支持范围和已知限制，并按目标版本更新 [Release 说明模板](release-notes.md)；模板必须逐版更新，不能原样沿用其他版本的变更和验证说明。正式稳定版仍需完成相应平台、终端、客户端及七版本 Gitea 验收；工作流成功不能自动补齐这些证据。新标签会重新构建最终包，旧候选的 hash 和验收记录不能直接套用。
 4. 仓库需启用 GitHub Actions，允许官方 Actions 和托管 runner，并允许发布任务的 `GITHUB_TOKEN` 使用 `contents: write`。无需配置个人访问 token 或第三方发布服务。
 
 维护者确认准备发布后，在目标提交上操作：
 
 ```sh
-git tag -a v0.1.0-rc.2 -m 'sotea v0.1.0-rc.2'
-git push origin v0.1.0-rc.2
+git tag -a v0.1.0-rc.3 -m 'sotea v0.1.0-rc.3'
+git push origin v0.1.0-rc.3
 ```
 
 上述命令会触发真正发布，不是本地验证命令。已有标签无需重复创建，可在 Actions → Release → Run workflow 中填入它；工作流始终检出标签提交，不拿默认分支源码冒充标签内容。
@@ -25,7 +25,7 @@ git push origin v0.1.0-rc.2
 | 版本和源码 | 校验 SemVer、标签提交、VERSION、工具链 Go 1.27.3、干净工作区、格式、依赖及工作流。 |
 | 回归 | `go vet`、全量竞态测试、安装脚本静态检查与隔离测试。 |
 | 打包 | `CGO_ENABLED=0`、`-trimpath`、`-buildvcs=false`；三个目标的实际版本均为标签本身，无 `+ci` 后缀。 |
-| 原生验证 | macOS 15 arm64／Intel、Windows Server 2025 amd64 执行完整 Go 测试，并运行最终归档中的程序；arm64 对最终程序执行 PTY／MCP 冒烟；验证 sh、Windows PowerShell 5.1 和 PowerShell 安装场景。 |
+| 原生验证 | macOS 15 arm64／Intel、Windows Server 2025 amd64 执行完整 Go 测试，并运行最终归档中的程序；arm64 对最终程序执行 PTY／MCP 冒烟；验证 sh、Windows PowerShell 5.1 和 PowerShell 的文件安装及实际发布说明的一键文本安装场景，覆盖 UTF-8 BOM。 |
 | 草稿上传 | 所有验证通过后创建草稿，上传完整附件，既有同名 Release 或附件不覆盖。 |
 | 下载复核 | 从 GitHub 重新下载全部附件，与本地 SHA256SUMS 及来源记录逐一比较。 |
 | 公开发布 | 复核成功才取消草稿。`-rc.N` 等标签自动标记为 prerelease，不更新 Latest；稳定标签设为 Latest。 |
@@ -34,12 +34,12 @@ git push origin v0.1.0-rc.2
 
 ## 附件契约
 
-以 `v0.1.0-rc.2` 为例，共七个附件：
+以 `v0.1.0-rc.3` 为例，共七个附件：
 
 ```text
-sotea-v0.1.0-rc.2-darwin-arm64.tar.gz
-sotea-v0.1.0-rc.2-darwin-amd64.tar.gz
-sotea-v0.1.0-rc.2-windows-amd64.zip
+sotea-v0.1.0-rc.3-darwin-arm64.tar.gz
+sotea-v0.1.0-rc.3-darwin-amd64.tar.gz
+sotea-v0.1.0-rc.3-windows-amd64.zip
 install.sh
 install.ps1
 release-manifest.json
@@ -63,11 +63,11 @@ SHA256SUMS
 
 ```sh
 GOTOOLCHAIN=go1.27.3 python3 scripts/release.py build \
-  --tag v0.1.0-rc.2 --directory dist/release-local
-python3 scripts/release.py verify --tag v0.1.0-rc.2 --directory dist/release-local
+  --tag v0.1.0-rc.3 --directory dist/release-local
+python3 scripts/release.py verify --tag v0.1.0-rc.3 --directory dist/release-local
 GOTOOLCHAIN=go1.27.3 python3 scripts/release.py native \
-  --tag v0.1.0-rc.2 --target darwin-arm64 --directory dist/release-local
-python3 scripts/test-installers.py --tag v0.1.0-rc.2 --directory dist/release-local
+  --tag v0.1.0-rc.3 --target darwin-arm64 --directory dist/release-local
+python3 scripts/test-installers.py --tag v0.1.0-rc.3 --directory dist/release-local
 ```
 
 `native` 的目标必须等于本机 OS／架构；Windows 安装测试需在 Windows 使用 `--powershell powershell.exe` 或 `--powershell pwsh.exe`。本地构建不触发网络发布，也不代替目标系统验收。

@@ -14,7 +14,7 @@ sotea 的一个可执行文件同时提供 CLI、交互菜单和本地 MCP 服�
 
 ## 脚本首次安装
 
-安装脚本自动选择架构，从固定仓库下载压缩包和 SHA256SUMS，核对 SHA-256 与程序版本，再安装到用户目录。无需管理员权限；不覆盖已有程序，已有安装使用 `sotea update install`。无版本参数时只选择最新稳定版；目前为 RC，必须显式指定 `v0.1.0-rc.2`。没有稳定版时会清晰报错，不悄悄切换到 RC。
+安装脚本自动选择架构，从固定仓库下载压缩包和 SHA256SUMS，核对 SHA-256 与程序版本，再安装到用户目录。无需管理员权限；不覆盖已有程序，已有安装使用 `sotea update install`。无版本参数时只选择最新稳定版；目前为 RC，必须显式指定 `v0.1.0-rc.3`。没有稳定版时会清晰报错，不悄悄切换到 RC。
 
 macOS，在 Terminal／iTerm2 复制整段执行：
 
@@ -24,9 +24,9 @@ macOS，在 Terminal／iTerm2 复制整段执行：
     installer=$(mktemp)
     trap 'rm -f "$installer"' EXIT
     curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
-        https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.2/install.sh \
+        https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.3/install.sh \
         -o "$installer"
-    sh "$installer" --version v0.1.0-rc.2
+    sh "$installer" --version v0.1.0-rc.3
 )
 ```
 
@@ -35,11 +35,12 @@ macOS，在 Terminal／iTerm2 复制整段执行：
 Windows，在 64 位 Windows PowerShell 5.1 或 PowerShell 中执行：
 
 ```powershell
-& ([scriptblock]::Create((Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri `
-    'https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.2/install.ps1').Content)) -Version v0.1.0-rc.2
+& ([scriptblock]::Create((irm -ErrorAction Stop https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.3/install.ps1).TrimStart([char]0xFEFF))) -Version v0.1.0-rc.3
 ```
 
-上例在当前 PowerShell 中执行从对应 Release 取得的脚本，不更改系统执行策略。默认安装至 `%LOCALAPPDATA%\Programs\sotea\sotea.exe`，保留用户 PATH 原有项并添加安装目录，同时更新当前窗口 PATH。`-NoModifyPath` 跳过；`-InstallDirectory 'C:\your\directory'` 自定义目录。仅支持 amd64，不承诺 Windows ARM64。
+上例先清除下载字符串开头的 UTF-8 BOM（`TrimStart([char]0xFEFF)`），再在当前 PowerShell 中执行，不更改系统执行策略。rc.1／rc.2 的脚本附件保留 BOM 以支持 PowerShell 5.1 文件执行；旧命令直接传入 `ScriptBlock.Create` 会在 `CmdletBinding`／`param` 处报解析错误，使用上面的命令即可处理，无需更换附件。
+
+默认安装至 `%LOCALAPPDATA%\Programs\sotea\sotea.exe`，保留用户 PATH 原有项并添加安装目录，同时更新当前窗口 PATH。`-NoModifyPath` 跳过；`-InstallDirectory 'C:\your\directory'` 自定义目录。仅支持 amd64，不承诺 Windows ARM64。
 
 也可先从同一 Release 下载脚本，审阅后以 `sh ./install.sh --version TAG` 或 `& .\install.ps1 -Version TAG` 执行；组织限制脚本执行时按组织策略操作。稳定版发布后，可将下载地址改为 `releases/latest/download/install.sh`／`install.ps1` 并省略版本参数。离线环境或不希望执行安装脚本时使用下方手动步骤。
 
