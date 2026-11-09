@@ -48,7 +48,10 @@ try {
     $ast = [Management.Automation.Language.Parser]::ParseFile($InstallerPath, [ref]$parseTokens, [ref]$parseErrors)
     if ($parseErrors.Count) { throw 'Installer parsing failed.' }
     $queryFunction = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-CredentialQuery' }, $true)
-    Invoke-Expression $queryFunction.Extent.Text
+    $queryFixture = $queryFunction.Extent.Text
+    $queryFixture = $queryFixture.Replace("catch { return '' }", 'catch { throw }')
+    $queryFixture = $queryFixture.Replace('if ($process.ExitCode -ne 0) { return '''' }', 'if ($process.ExitCode -ne 0) { throw ''Synthetic credential child exited unsuccessfully.'' }')
+    Invoke-Expression $queryFixture
     $env:GIT_DIR = 'injected-repository'
     $env:GIT_CONFIG_COUNT = '99'
     $executable = [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
