@@ -62,6 +62,7 @@ type Response struct {
 
 // New 创建固定实例客户端，默认超时 30 秒、响应上限 1 MiB。
 // 地址不能包含凭证、query 或 fragment；自定义 CA 加到系统信任集，TLS 始终验证。
+// 读取可协商 HTTP/2；写入使用独立 HTTP/1.1 连接，TLS ALPN 同步限制以避免协议错配与隐含重放。
 func New(options Options) (*Client, error) {
 	root, err := url.Parse(options.BaseURL)
 	if err != nil || root.Hostname() == "" || root.User != nil || root.RawQuery != "" || root.Fragment != "" ||
@@ -109,6 +110,9 @@ func New(options Options) (*Client, error) {
 	writeTransport.DisableKeepAlives = true
 	writeTransport.ForceAttemptHTTP2 = false
 	writeTransport.TLSNextProto = map[string]func(string, *tls.Conn) http.RoundTripper{}
+	// Clone 会初始化读取传输并复制含 h2 的 ALPN；禁用处理器时必须同步限制握手协议。
+	// 否则服务端选中 h2 后收到 HTTP/1 请求，业务处理器尚未进入就会断开或返回二进制帧。
+	writeTransport.TLSClientConfig.NextProtos = []string{"http/1.1"}
 	client := &Client{root: root, options: options}
 	client.read = &http.Client{Transport: transport, Timeout: options.Timeout, CheckRedirect: client.redirect}
 	client.write = &http.Client{Transport: writeTransport, Timeout: options.Timeout, CheckRedirect: client.redirect}

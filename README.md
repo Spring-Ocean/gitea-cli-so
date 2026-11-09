@@ -1,6 +1,6 @@
 # sotea
 
-[![Version: v0.1.0-rc.3](https://img.shields.io/badge/Version-v0.1.0--rc.3-blue?style=flat-square)](cmd/sotea/VERSION)
+[![Version: v0.1.0-rc.4](https://img.shields.io/badge/Version-v0.1.0--rc.4-blue?style=flat-square)](cmd/sotea/VERSION)
 [![Status: Pre-release](https://img.shields.io/badge/Status-Pre--release-orange?style=flat-square)](docs/compatibility.md#发布状态与问题反馈)
 [![CI](https://github.com/Spring-Ocean/gitea-cli-so/actions/workflows/ci.yml/badge.svg)](https://github.com/Spring-Ocean/gitea-cli-so/actions/workflows/ci.yml)
 [![Release](https://github.com/Spring-Ocean/gitea-cli-so/actions/workflows/release.yml/badge.svg)](https://github.com/Spring-Ocean/gitea-cli-so/actions/workflows/release.yml)
@@ -108,16 +108,16 @@ Use the commands below to install this RC from its GitHub Release assets. Instal
     installer=$(mktemp)
     trap 'rm -f "$installer"' EXIT
     curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
-        https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.3/install.sh \
+        https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.4/install.sh \
         -o "$installer"
-    sh "$installer" --version v0.1.0-rc.3
+    sh "$installer" --version v0.1.0-rc.4
 )
 ```
 
 **Windows · PowerShell 5.1 / PowerShell**
 
 ```powershell
-& ([scriptblock]::Create((irm -ErrorAction Stop https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.3/install.ps1).TrimStart([char]0xFEFF))) -Version v0.1.0-rc.3
+& ([scriptblock]::Create([Text.Encoding]::UTF8.GetString((Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri 'https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.4/install.ps1').RawContentStream.ToArray()).TrimStart([char]0xFEFF))) -Version v0.1.0-rc.4
 ```
 
 也可以手动下载对应平台压缩包和 SHA256SUMS，校验后安装。发布维护流程见 [Release 说明](docs/releases.md)。安装完成后，重新打开终端并执行：
@@ -201,11 +201,15 @@ Run `sotea`, open **MCP integrations**, and select the client and user or projec
 
 Access is read-only by default. Business writes and raw API access are enabled separately. See the [MCP integration guide](docs/mcp.md) for setup, updates, removal, and troubleshooting.
 
+模型调用使用 sotea 参数契约；Release 的 `tag`／`target` 等字段区别和完整示例见 [MCP 模型调用指南](docs/mcp-agent-guide.md)。
+
+Model calls follow the sotea parameter contract. See the [MCP agent guide](docs/mcp-agent-guide.md) for Release `tag`/`target` fields and complete examples.
+
 ## 平台与当前状态 / Platforms and current status
 
-当前版本为 **v0.1.0-rc.3**，是修复 Windows 一键安装命令解析问题的小型预发布版。
+当前版本为 **v0.1.0-rc.4**，是修复 HTTPS 写入、Windows 安装命令并补充 MCP 参数指引的小型预发布版。
 
-The current version is **v0.1.0-rc.3**, a small prerelease fixing Windows one-command installer parsing.
+The current version is **v0.1.0-rc.4**, a small prerelease fixing HTTPS writes and Windows installer commands, with clearer MCP argument guidance.
 
 目标平台为 macOS 15 起的 arm64／amd64，以及 Windows 10 22H2／Windows 11 的 amd64。Git 集成功能基线为 Git 2.43。
 
@@ -240,9 +244,9 @@ go build -o bin/sotea.exe ./cmd/sotea
 .\bin\sotea.exe version
 ```
 
-普通源码构建从 [VERSION](cmd/sotea/VERSION) 读取版本，当前显示 `v0.1.0-rc.3`；CI 构建附加 `+ci.<commit>` 标识。开发文档、设计与验收记录保存在本地 `devdocs/`，该目录已加入 Git 忽略规则；对外使用文档统一放在 [docs/](docs/README.md)。隔离测试环境的执行说明保留在 [tests/integration](tests/integration/README.md)。
+普通源码构建从 [VERSION](cmd/sotea/VERSION) 读取版本，当前显示 `v0.1.0-rc.4`；CI 构建附加 `+ci.<commit>` 标识。开发文档、设计与验收记录保存在本地 `devdocs/`，该目录已加入 Git 忽略规则；对外使用文档统一放在 [docs/](docs/README.md)。隔离测试环境的执行说明保留在 [tests/integration](tests/integration/README.md)。
 
-Source builds read their version from [VERSION](cmd/sotea/VERSION), currently `v0.1.0-rc.3`. CI builds append `+ci.<commit>` for traceability. Development documentation, designs, and acceptance records are kept locally in `devdocs/`, which is ignored by Git. User documentation lives in [docs/](docs/README.md). Instructions for the isolated test environment are in [tests/integration](tests/integration/README.md).
+Source builds read their version from [VERSION](cmd/sotea/VERSION), currently `v0.1.0-rc.4`. CI builds append `+ci.<commit>` for traceability. Development documentation, designs, and acceptance records are kept locally in `devdocs/`, which is ignored by Git. User documentation lives in [docs/](docs/README.md). Instructions for the isolated test environment are in [tests/integration](tests/integration/README.md).
 
 GitHub Actions 在 push 和 PR 时执行格式、依赖、静态分析、竞态回归及 macOS／Windows 原生测试和构建，并在 macOS 验证菜单与 MCP 冒烟。纯公开文档变更跳过 Go 检查。运行范围和本地复现见 [CI 说明](docs/ci.md)。
 

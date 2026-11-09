@@ -9,6 +9,7 @@
 | [配置与认证](configuration.md) | 实例、账号、Git 凭证、token、私有 CA、代理及配置位置。 |
 | [使用指南](usage.md) | 菜单、Issue／PR／Release、Git、通用 API、JSON 与退出码。 |
 | [MCP 接入](mcp.md) | 四客户端配置向导、工作区跟随、权限、连接检查和恢复。 |
+| [MCP 模型调用指南](mcp-agent-guide.md) | sotea 与 Gitea 字段区别、action 参数表、Release 示例及错误恢复。 |
 | [兼容性与验证状态](compatibility.md) | 目标系统、Gitea 版本及已验证范围。 |
 | [Windows 验证](windows-validation.md) | Windows 10／11 基础检查、随候选包提供的脚本及手工验收。 |
 | [GitHub 持续集成](ci.md) | push／PR 检查、目标构建、文档变更跳过规则及本地复现。 |

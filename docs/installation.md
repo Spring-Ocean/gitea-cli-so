@@ -14,7 +14,7 @@ sotea 的一个可执行文件同时提供 CLI、交互菜单和本地 MCP 服�
 
 ## 脚本首次安装
 
-安装脚本自动选择架构，从固定仓库下载压缩包和 SHA256SUMS，核对 SHA-256 与程序版本，再安装到用户目录。无需管理员权限；不覆盖已有程序，已有安装使用 `sotea update install`。无版本参数时只选择最新稳定版；目前为 RC，必须显式指定 `v0.1.0-rc.3`。没有稳定版时会清晰报错，不悄悄切换到 RC。
+安装脚本自动选择架构，从固定仓库下载压缩包和 SHA256SUMS，核对 SHA-256 与程序版本，再安装到用户目录。无需管理员权限；不覆盖已有程序，已有安装使用 `sotea update install`。无版本参数时只选择最新稳定版；目前为 RC，必须显式指定 `v0.1.0-rc.4`。没有稳定版时会清晰报错，不悄悄切换到 RC。
 
 macOS，在 Terminal／iTerm2 复制整段执行：
 
@@ -24,9 +24,9 @@ macOS，在 Terminal／iTerm2 复制整段执行：
     installer=$(mktemp)
     trap 'rm -f "$installer"' EXIT
     curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
-        https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.3/install.sh \
+        https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.4/install.sh \
         -o "$installer"
-    sh "$installer" --version v0.1.0-rc.3
+    sh "$installer" --version v0.1.0-rc.4
 )
 ```
 
@@ -35,10 +35,10 @@ macOS，在 Terminal／iTerm2 复制整段执行：
 Windows，在 64 位 Windows PowerShell 5.1 或 PowerShell 中执行：
 
 ```powershell
-& ([scriptblock]::Create((irm -ErrorAction Stop https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.3/install.ps1).TrimStart([char]0xFEFF))) -Version v0.1.0-rc.3
+& ([scriptblock]::Create([Text.Encoding]::UTF8.GetString((Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri 'https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.4/install.ps1').RawContentStream.ToArray()).TrimStart([char]0xFEFF))) -Version v0.1.0-rc.4
 ```
 
-上例先清除下载字符串开头的 UTF-8 BOM（`TrimStart([char]0xFEFF)`），再在当前 PowerShell 中执行，不更改系统执行策略。rc.1／rc.2 的脚本附件保留 BOM 以支持 PowerShell 5.1 文件执行；旧命令直接传入 `ScriptBlock.Create` 会在 `CmdletBinding`／`param` 处报解析错误，使用上面的命令即可处理，无需更换附件。
+上例从响应的 `RawContentStream` 取得原始字节，明确按 UTF-8 解码并移除前导 BOM，再在当前 PowerShell 中执行，不更改系统执行策略。`rc.1` 至 `rc.3` 的旧下载文本命令可能受 HTTP 字符集解码影响：BOM 被误解码后不再是 U+FEFF，仅 `TrimStart` 无法修复，因此仍会在 `CmdletBinding`／`param` 处报错。上面的新命令适用于原有附件，无需删除 BOM 或更改脚本头。
 
 默认安装至 `%LOCALAPPDATA%\Programs\sotea\sotea.exe`，保留用户 PATH 原有项并添加安装目录，同时更新当前窗口 PATH。`-NoModifyPath` 跳过；`-InstallDirectory 'C:\your\directory'` 自定义目录。仅支持 amd64，不承诺 Windows ARM64。
 

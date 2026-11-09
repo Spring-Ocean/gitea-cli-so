@@ -3,7 +3,9 @@ package release
 import (
 	"context"
 	"encoding/json"
+	"encoding/pem"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -372,5 +374,73 @@ func TestTagSideEffectSurvivesReleaseFailure(t *testing.T) {
 	execution := result.Items[0].Data.(write.Execution)
 	if len(execution.Steps) != 2 || execution.Steps[0].Target != "tag_created" || execution.Steps[0].Status != app.Success {
 		t.Fatal("actual created tag was lost")
+	}
+}
+
+// TestPublishedReleaseCreateOverHTTP2TLS 保护 HTTPS HTTP/2 实例上的真实准备／创建／读回链路。
+// 使用合成账号、中文发布正文和既有标签，发布后只写一次，重复消费计划不能重建 Release。
+func TestPublishedReleaseCreateOverHTTP2TLS(t *testing.T) {
+	fixture, service := newReleaseFixture(t)
+	fixture.tagExists = true
+	server := httptest.NewUnstartedServer(http.HandlerFunc(fixture.handle))
+	server.EnableHTTP2 = true
+	server.Config.ErrorLog = log.New(io.Discard, "", 0)
+	server.StartTLS()
+	defer server.Close()
+	ca := filepath.Join(t.TempDir(), "https-ca.pem")
+	if err := os.WriteFile(ca, pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: server.Certificate().Raw,
+	}), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := service.Auth.Store.Load(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	instance := snapshot.Config.Instances["team"]
+	instance.URL = server.URL
+	instance.CAPath = ca
+	account := instance.Accounts["alice"]
+	account.InstanceURL = server.URL
+	instance.Accounts["alice"] = account
+	snapshot.Config.Instances["team"] = instance
+	snapshot, err = service.Auth.Store.Save(context.Background(), snapshot, snapshot.Config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.Target.Instance = instance
+	service.Revision = snapshot.RevisionKey()
+	service.Version = compat.Parse("28.3.0")
+	title := "v1"
+	body := "# 预发布\n验证 HTTPS 下的 Release 创建。"
+	draft, prerelease := false, true
+	plan, err := service.Prepare(context.Background(), Request{
+		Operation:  "release.create",
+		Tag:        "v1",
+		Title:      &title,
+		Body:       &body,
+		Draft:      &draft,
+		Prerelease: &prerelease,
+		Target:     "main",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := service.Commit(context.Background(), plan)
+	if err != nil || result.Status != app.Success {
+		t.Fatalf("HTTPS Release creation failed: result=%+v err=%v", result, err)
+	}
+	value := result.Items[0].Data.(write.Execution).Resource.(Release)
+	if value.ID != 10 || value.Tag != "v1" || value.Body != body || value.Draft || !value.Prerelease {
+		t.Fatalf("published Release fields changed: %+v", value)
+	}
+	if _, err := service.Commit(context.Background(), plan); err == nil {
+		t.Fatal("the same Release plan was executed twice")
+	}
+	fixture.mu.Lock()
+	defer fixture.mu.Unlock()
+	if fixture.writes != 1 {
+		t.Fatalf("expected one Release create request, got %d", fixture.writes)
 	}
 }

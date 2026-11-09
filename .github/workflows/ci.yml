@@ -100,7 +100,7 @@ jobs:
         run: |
           sh -n scripts/install.sh
           shellcheck --shell=sh scripts/install.sh
-          python3 -m py_compile scripts/release.py scripts/test-installers.py scripts/test-release.py
+          python3 -m py_compile scripts/release.py scripts/test-installers.py scripts/test-release.py scripts/test-install-command.py
           python3 scripts/test-installers.py
           python3 scripts/test-release.py
       - name: Go vet
@@ -162,11 +162,11 @@ jobs:
               throw ($parseErrors | Out-String)
             }
           }
-          & ./scripts/test-install-command.ps1
+          python scripts/test-install-command.py --powershell powershell.exe
       - name: Check PowerShell documented install command
         if: runner.os == 'Windows'
         shell: pwsh
-        run: ./scripts/test-install-command.ps1
+        run: python scripts/test-install-command.py --powershell pwsh.exe
       - name: Build and check executable
         env:
           CGO_ENABLED: '0'

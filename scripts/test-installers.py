@@ -163,9 +163,9 @@ def run_windows_tests(tag, release_directory, powershell):
     先验证实际文档的下载文本命令；网络替身和 NoModifyPath 隔离真实配置。
     """
     subprocess.run([
-        powershell, "-NoProfile", "-NonInteractive", "-File", str(ROOT / "scripts/test-install-command.ps1"),
-        "-InstallerPath", str((release_directory / "install.ps1").resolve()),
-    ], check=True, timeout=60)
+        sys.executable, str(ROOT / "scripts/test-install-command.py"), "--powershell", powershell,
+        "--installer-path", str((release_directory / "install.ps1").resolve()),
+    ], check=True, timeout=240)
     folder = "sotea-" + tag + "-windows-amd64"
     with zipfile.ZipFile(release_directory / (folder + ".zip")) as archive:
         binary = archive.read(folder + "/sotea.exe")

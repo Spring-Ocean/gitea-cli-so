@@ -155,6 +155,7 @@ func NewHost(version string, environment *session.Environment, options Options, 
 		Name:    "sotea",
 		Version: version,
 	}, &sdk.ServerOptions{
+		Instructions:              serverInstructions,
 		SupportedProtocolVersions: []string{"2025-11-25", "2025-06-18"},
 		RootsListChangedHandler: func(ctx context.Context, request *sdk.RootsListChangedRequest) {
 			host.invalidateWorkspace(request.Session)
@@ -165,7 +166,7 @@ func NewHost(version string, environment *session.Environment, options Options, 
 		host.register("api_read", "Call a bounded GET, HEAD, or OPTIONS API request. Custom endpoint effects depend on the server.", apiSchema(true), false, false, (*Host).apiRead)
 	}
 	if options.AllowWrite {
-		host.register("write_prepare", "Prepare an exact write without business mutations. Show every target and change before committing.", prepareSchema(options.AllowRawAPI), true, false, (*Host).prepare)
+		host.register("write_prepare", prepareDescription, prepareSchema(options.AllowRawAPI), true, false, (*Host).prepare)
 		host.register("write_commit", "Commit the original immutable plan once. Repeated calls return its existing state or result; never resend unknown outcomes.", objectSchema(schema{
 			"plan_id": textSchema(true), "confirmation_token": textSchema(true),
 		}, "plan_id", "confirmation_token"), true, false, (*Host).commit)
@@ -179,6 +180,7 @@ func NewHost(version string, environment *session.Environment, options Options, 
 // register 为单一工具连接 SDK 严格校验和共同取消／输出边界。
 // input 不可在注册后修改；handler 收到独立会话工作区视图，业务失败返回一致结构化／文本结果。
 func (h *Host) register(name, description string, input schema, write, status bool, handler func(*Host, context.Context, map[string]json.RawMessage) response) {
+	describeInputFields(input["properties"].(schema))
 	sdk.AddTool(h.Server, &sdk.Tool{
 		Name:         "sotea_" + name,
 		Description:  description,

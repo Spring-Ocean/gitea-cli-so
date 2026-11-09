@@ -44,6 +44,12 @@ Codex 向导只添加 `[mcp_servers.sotea]` 子表，保留已有的 `[mcp_serve
 
 写入流程为：读取目标 → `sotea_write_prepare` → 展示预览 → 客户端批准 → `sotea_write_commit` → `sotea_write_status`。服务端无法仅凭一次工具调用证明人工已批准；应同时核对客户端的批准设置。
 
+## 模型参数与调用指引
+
+专用工具使用 sotea 字段，不直接接受 Gitea API payload：Release 创建为 params.tag／params.target，不能用 tag_name／target_commitish；编辑使用 params.changes，创建字段直接放在 params。完整 action 表、示例与错误恢复见 [MCP 模型调用指南](mcp-agent-guide.md)。
+
+v0.1.0-rc.4 在 MCP 初始化 instructions、工具描述及字段 Schema 中直接提供英文指引和完整示例，不要求用户向每个模型手动粘贴提示词。rc.3 及此前版本没有这项增强；升级后客户端需重载并重新发现工具。连接检查通过只代表初始化／发现成功，仍须验证模型实际生成参数及调用。
+
 ## 配置位置与维护
 
 下面是向导生成的默认位置；自定义 profile 可以在向导中明确指定真实文件路径。
@@ -90,6 +96,14 @@ Windows 使用实际 exe 的绝对路径；JSON／TOML 中按语法正确转义�
 | `executing` | 查询原计划状态，不发起替代写入。 |
 | `partial`／`unknown`／`RESULT_UNKNOWN` | 保留已知资源 ID，先查远端；不要自动重放写请求。 |
 | 重启后找不到计划 | 计划只属于原进程，按远端资源核查，不承诺跨进程幂等。 |
+
+### HTTPS 写入返回 RESULT_UNKNOWN
+
+已确认 v0.1.0-rc.1 至 rc.3 的 HTTPS 写连接存在协议协商缺陷：写入禁用 HTTP/2 处理器，却从读取连接复制了支持 h2 的 TLS ALPN。服务端协商 h2 后，客户端仍发送 HTTP/1.1，请求可能在到达业务处理器之前失败。读取／prepare 成功不能排除这一问题。
+
+v0.1.0-rc.4 已让写连接只宣告 HTTP/1.1，合成 HTTPS HTTP/2 服务的单次写入和 Release 准备→创建→读回回归通过。RESULT_UNKNOWN 仍应保留：没有收到有效 HTTP 响应时无法提供 HTTP 状态，也不能仅因后续列表为空就宣称从未写入。
+
+使用包含修复的构建并重载 MCP 后，先通过只读工具核对目标 Release 和标签，再决定是否使用新的 request_id 准备写入。已经完成为 unknown 的原计划只能查询，不能通过重复 commit 重放。
 
 取消或结束进程不等于服务端回滚。四客户端的当前实际验证范围见 [兼容性说明](compatibility.md)。
 

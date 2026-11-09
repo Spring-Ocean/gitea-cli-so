@@ -53,6 +53,7 @@ func contextProperties(local bool) schema {
 	if local {
 		properties["workdir"] = textSchema(true)
 	}
+	describeInputFields(properties)
 	return properties
 }
 
@@ -133,6 +134,7 @@ func changesSchema(kind string) schema {
 			"prerelease": schema{"type": "boolean"},
 		}
 	}
+	describeInputFields(fields)
 	result := objectSchema(fields)
 	result["minProperties"] = 1
 	return result
@@ -191,8 +193,12 @@ func actionSchema(action string) schema {
 		required = append(required, "method")
 	case "release.create":
 		fields = schema{
-			"tag": textSchema(true), "name": textSchema(false), "body": textSchema(false),
-			"target": textSchema(true), "draft": schema{"type": "boolean"}, "prerelease": schema{"type": "boolean"},
+			"tag":        textSchema(true),
+			"name":       textSchema(false),
+			"body":       textSchema(false),
+			"target":     textSchema(true),
+			"draft":      schema{"type": "boolean"},
+			"prerelease": schema{"type": "boolean"},
 		}
 		required = append(required, "tag")
 	case "release.asset.upload":
@@ -211,7 +217,9 @@ func actionSchema(action string) schema {
 		fields["index"] = integerSchema(1)
 		required = append(required, "index")
 	}
+	describeInputFields(fields)
 	result := objectSchema(fields, required...)
+	result["description"] = "Parameters for " + action + "; use only these sotea fields."
 	if action == "pr.reviewer.add" {
 		result["anyOf"] = []schema{{"required": []string{"users"}}, {"required": []string{"teams"}}}
 	}
@@ -238,6 +246,7 @@ func prepareSchema(raw bool) schema {
 		"context":    objectSchema(contextProperties(true)),
 		"params":     schema{"type": "object"},
 	}, "request_id", "action", "context", "params")
+	result["examples"] = prepareExamples()
 	result["oneOf"] = branches
 	return result
 }
@@ -262,6 +271,7 @@ func apiSchema(read bool) schema {
 			"files":  listSchema(objectSchema(schema{"field_name": textSchema(true), "file_path": textSchema(true)}, "field_name", "file_path"), 1),
 		}, "files")
 	}
+	describeInputFields(fields)
 	return objectSchema(fields, "method", "path")
 }
 
