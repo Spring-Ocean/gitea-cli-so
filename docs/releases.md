@@ -5,15 +5,15 @@
 ## 发布前
 
 1. 将本轮代码、脚本及公开文档提交并推送，确认 CI 通过。
-2. 将 `cmd/sotea/VERSION` 设置为目标版本。标签必须与文件完全一致，例如 `v0.1.0-rc.4`；不接受带 `+build` 的发布标签。
+2. 将 `cmd/sotea/VERSION` 设置为目标版本。标签必须与文件完全一致，例如 `v0.1.0-rc.5`；不接受带 `+build` 的发布标签。
 3. 核对支持范围和已知限制，并按目标版本更新 [Release 说明模板](release-notes.md)；模板必须逐版更新，不能原样沿用其他版本的变更和验证说明。正式稳定版仍需完成相应平台、终端、客户端及七版本 Gitea 验收；工作流成功不能自动补齐这些证据。新标签会重新构建最终包，旧候选的 hash 和验收记录不能直接套用。
 4. 仓库需启用 GitHub Actions，允许官方 Actions 和托管 runner，并允许发布任务的 `GITHUB_TOKEN` 使用 `contents: write`。无需配置个人访问 token 或第三方发布服务。
 
 维护者确认准备发布后，在目标提交上操作：
 
 ```sh
-git tag -a v0.1.0-rc.4 -m 'sotea v0.1.0-rc.4'
-git push origin v0.1.0-rc.4
+git tag -a v0.1.0-rc.5 -m 'sotea v0.1.0-rc.5'
+git push origin v0.1.0-rc.5
 ```
 
 上述命令会触发真正发布，不是本地验证命令。已有标签无需重复创建，可在 Actions → Release → Run workflow 中填入它；工作流始终检出标签提交，不拿默认分支源码冒充标签内容。
@@ -34,12 +34,12 @@ git push origin v0.1.0-rc.4
 
 ## 附件契约
 
-以 `v0.1.0-rc.4` 为例，共七个附件：
+以 `v0.1.0-rc.5` 为例，共七个附件：
 
 ```text
-sotea-v0.1.0-rc.4-darwin-arm64.tar.gz
-sotea-v0.1.0-rc.4-darwin-amd64.tar.gz
-sotea-v0.1.0-rc.4-windows-amd64.zip
+sotea-v0.1.0-rc.5-darwin-arm64.tar.gz
+sotea-v0.1.0-rc.5-darwin-amd64.tar.gz
+sotea-v0.1.0-rc.5-windows-amd64.zip
 install.sh
 install.ps1
 release-manifest.json
@@ -63,11 +63,11 @@ SHA256SUMS
 
 ```sh
 GOTOOLCHAIN=go1.27.3 python3 scripts/release.py build \
-  --tag v0.1.0-rc.4 --directory dist/release-local
-python3 scripts/release.py verify --tag v0.1.0-rc.4 --directory dist/release-local
+  --tag v0.1.0-rc.5 --directory dist/release-local
+python3 scripts/release.py verify --tag v0.1.0-rc.5 --directory dist/release-local
 GOTOOLCHAIN=go1.27.3 python3 scripts/release.py native \
-  --tag v0.1.0-rc.4 --target darwin-arm64 --directory dist/release-local
-python3 scripts/test-installers.py --tag v0.1.0-rc.4 --directory dist/release-local
+  --tag v0.1.0-rc.5 --target darwin-arm64 --directory dist/release-local
+python3 scripts/test-installers.py --tag v0.1.0-rc.5 --directory dist/release-local
 ```
 
 `native` 的目标必须等于本机 OS／架构；Windows 安装测试需在 Windows 使用 `--powershell powershell.exe` 或 `--powershell pwsh.exe`。本地构建不触发网络发布，也不代替目标系统验收。

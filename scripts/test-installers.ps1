@@ -2,12 +2,13 @@
 # 为安装脚本提供固定 GitHub 附件，不访问真实网络或写用户 PATH。
 # 由 Python 为每个用例创建独立目录，并核对失败后目标文件未改变。
 $ErrorActionPreference = 'Stop'
+$env:SOTEA_GITHUB_AUTH = 'anonymous'
 
 # Invoke-WebRequest 仅复制场景中已准备的附件并记录固定来源。
 # 未授权主机、路径、标签及模拟下载失败都在任何安装提交前拒绝。
 function Invoke-WebRequest {
     [CmdletBinding()]
-    param([switch]$UseBasicParsing, [string]$Uri, [string]$OutFile, [int]$TimeoutSec)
+    param([switch]$UseBasicParsing, [string]$Uri, [string]$OutFile, [int]$MaximumRedirection, [int]$TimeoutSec)
     [IO.File]::AppendAllText((Join-Path $env:SOTEA_INSTALL_FIXTURE 'requests'), $Uri + "`n")
     $prefix = 'https://github.com/Spring-Ocean/gitea-cli-so/releases/download/' + $env:SOTEA_INSTALL_TAG + '/'
     if (-not $Uri.StartsWith($prefix) -or $env:SOTEA_INSTALL_SCENARIO -eq 'download') {
@@ -34,7 +35,7 @@ function Invoke-WebRequest {
 # 下载文本的响应提供原始流，真实 HTTP 字符集兼容由独立回归核验。
 function Invoke-RestMethod {
     [CmdletBinding()]
-    param([string]$Uri, [hashtable]$Headers, [int]$TimeoutSec)
+    param([string]$Uri, [hashtable]$Headers, [int]$MaximumRedirection, [int]$TimeoutSec)
 
     if ($Uri -cne 'https://api.github.com/repos/Spring-Ocean/gitea-cli-so/releases/latest') {
         throw 'Fixture API rejected.'

@@ -1,6 +1,25 @@
 # 检查与安装更新
 
-sotea 从公开 GitHub 仓库 `Spring-Ocean/gitea-cli-so` 的 Releases 检查和下载更新，不需要登录 GitHub，也不会读取或发送 Gitea token、Git 凭证或仓库信息。
+sotea 从公开 GitHub 仓库 `Spring-Ocean/gitea-cli-so` 的 Releases 检查和下载更新，不要求登录 GitHub；默认优先复用已有 GitHub 凭证，没有可用凭证时匿名访问。不会读取或转发 Gitea token，也不发送当前仓库信息。
+
+## GitHub 认证
+
+默认 `auto` 模式按以下顺序选择第一个可用凭证：`SOTEA_GITHUB_TOKEN` → `GH_TOKEN` → `GITHUB_TOKEN` → `gh auth token --hostname github.com` → Git credential helper 中匹配 `https://github.com/Spring-Ocean/gitea-cli-so` 的 HTTPS 凭证。无需安装 gh 或 Git；来源缺失、查询失败或超时后继续查找，全部不可用则匿名。Git 的 `credential.useHttpPath` 继续生效，查询在仓库外执行，不能读取当前项目的局部 helper；SSH 密钥和浏览器会话不参与。
+
+凭证查询不弹登录框、不启动浏览器。每个外部查询最多五秒，更新检查总体仍受八秒限制；Home 可取消。token 只留内存，不写缓存、配置、日志或命令参数。认证仅发送给固定仓库的 `https://api.github.com` Releases API；附件和重定向请求不携带凭证。
+
+若认证返回 `401`，同一读取请求只匿名重试一次，检查结果包含英文 `warning`；不会删除或更新共享凭证。`403`／`429` 不自动重试或轮换凭证，手动检查显示限流及可用的恢复时间，Home 继续遵守五小时冷却。认证提高 API 配额的机会，不能解决网络超时或附件 HTTP 504。
+
+可关闭全部凭证查询：
+
+```sh
+sotea update check --github-auth anonymous
+sotea update install --github-auth anonymous
+```
+
+设置 `SOTEA_GITHUB_AUTH=anonymous` 同时约束 Home、更新命令和安装脚本；`auto` 恢复自动查找，显式参数优先于环境变量。首次安装的 macOS 脚本支持 `--github-auth anonymous`，Windows 脚本支持 `-GitHubAuth anonymous`。显式版本首次安装无需查询 API，也不会读取凭证；未指定版本时，两脚本查询固定 API 的最新稳定版。
+
+上述功能从 rc.5 开始提供；rc.4 及以前的二进制与脚本保持原样。使用旧程序升级到 rc.5 的首次请求仍遵循旧版匿名策略，升级并重启后才启用新逻辑。
 
 ## Home 提醒
 

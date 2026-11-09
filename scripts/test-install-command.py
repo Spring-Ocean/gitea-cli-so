@@ -88,6 +88,7 @@ def main():
     parser.add_argument("--installer-path", type=Path, default=ROOT / "scripts/install.ps1")
     args = parser.parse_args()
     run_http_command_tests(args.powershell, args.installer_path)
+    subprocess.run([args.powershell, "-NoProfile", "-NonInteractive", "-File", str(ROOT / "scripts/test-installer-auth.ps1"), "-InstallerPath", str(args.installer_path.resolve())], check=True, timeout=90)
 
 
 if __name__ == "__main__":

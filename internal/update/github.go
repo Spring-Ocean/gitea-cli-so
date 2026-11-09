@@ -13,13 +13,14 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/Spring-Ocean/gitea-cli-so/internal/app"
 )
 
 // Repository 是唯一允许的发布来源，不接受 Gitea 实例或工具参数覆盖。
-// 不使用用户 GitHub／Gitea token，公开发布查询与安装均通过 HTTPS。
+// 仅固定API允许GitHub认证；附件下载与跳转永不携带凭证。
 const Repository = "Spring-Ocean/gitea-cli-so"
 
 // CheckInterval 限制 Home 自动检查的频率，失败尝试也计入间隔。
@@ -56,22 +57,38 @@ type Result struct {
 	Cached      bool      `json:"cached"`
 	ReleaseURL  string    `json:"release_url,omitempty"`
 	Message     string    `json:"message"`
+	Warning     string    `json:"warning,omitempty"`
 	release     Release
 }
 
 // Service 提供不依赖终端的检查、下载与安装服务。
 // New 创建固定 HTTPS 客户端；同一服务的公开设置只在使用前确定，不能与调用并发修改。
 type Service struct {
-	client    *http.Client
-	cachePath string
-	now       func() time.Time
-	goos      string
-	goarch    string
+	client             *http.Client
+	cachePath          string
+	now                func() time.Time
+	goos               string
+	goarch             string
+	authMode           string
+	credential         func(context.Context) string
+	credentialRejected *atomic.Bool
 }
 
 // New 创建独立于 Gitea 认证的更新客户端及用户级缓存位置。
 // 缓存定位失败时返回 IO_ERROR；调用者拥有服务，无后台进程或持久连接关闭责任。
 func New() (*Service, error) {
+	return NewWithAuth(os.Getenv("SOTEA_GITHUB_AUTH"))
+}
+
+// NewWithAuth 创建 auto 或 anonymous 模式的独立更新客户端。
+// 空值等同 auto；模式只影响固定 GitHub API，不改变 Gitea 身份或附件下载。
+func NewWithAuth(mode string) (*Service, error) {
+	if mode == "" {
+		mode = "auto"
+	}
+	if mode != "auto" && mode != "anonymous" {
+		return nil, app.Wrap(app.InvalidArgument, "GitHub authentication must be auto or anonymous.", nil)
+	}
 	directory, err := os.UserCacheDir()
 	if err != nil {
 		return nil, app.Wrap(app.IOError, "Unable to locate the update cache directory.", err)
@@ -81,10 +98,13 @@ func New() (*Service, error) {
 			Timeout:       2 * time.Minute,
 			CheckRedirect: checkRedirect,
 		},
-		cachePath: filepath.Join(directory, "sotea", "updates.json"),
-		now:       time.Now,
-		goos:      runtime.GOOS,
-		goarch:    runtime.GOARCH,
+		credentialRejected: &atomic.Bool{},
+		authMode:           mode,
+		credential:         githubCredential,
+		cachePath:          filepath.Join(directory, "sotea", "updates.json"),
+		now:                time.Now,
+		goos:               runtime.GOOS,
+		goarch:             runtime.GOARCH,
 	}, nil
 }
 
@@ -104,7 +124,7 @@ func checkRedirect(request *http.Request, via []*http.Request) error {
 	}
 }
 
-// get 创建不含凭证的 GET 请求并核对有限响应长度。
+// get 仅对固定仓库 API 添加 GitHub 凭证，401 时单次匿名重试。
 // 成功后的响应体必须由调用者关闭；失败在本函数释放响应体，不回显远端正文。
 func (s *Service) get(ctx context.Context, address string, limit int64) (*http.Response, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
@@ -113,7 +133,25 @@ func (s *Service) get(ctx context.Context, address string, limit int64) (*http.R
 	}
 	request.Header.Set("Accept", "application/vnd.github+json")
 	request.Header.Set("User-Agent", "sotea-update")
+	releasePath := "/repos/" + Repository + "/releases"
+	officialAPI := request.URL.Scheme == "https" && request.URL.Host == "api.github.com"
+	releaseAPI := request.URL.Path == releasePath || strings.HasPrefix(request.URL.Path, releasePath+"/")
+	if officialAPI && releaseAPI && s.authMode != "anonymous" && s.credential != nil {
+		if token := s.credential(ctx); token != "" {
+			request.Header.Set("Authorization", "Bearer "+token)
+		}
+	}
 	response, err := s.client.Do(request)
+	if err == nil && response.StatusCode == http.StatusUnauthorized && request.Header.Get("Authorization") != "" {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			return nil, app.Wrap(app.NetworkError, "Unable to close the rejected GitHub response.", closeErr)
+		}
+		if s.credentialRejected != nil {
+			s.credentialRejected.Store(true)
+		}
+		request.Header.Del("Authorization")
+		response, err = s.client.Do(request)
+	}
 	if err != nil {
 		return nil, app.Wrap(app.NetworkError, "Unable to reach GitHub Releases. Check your network and try again.", err)
 	}
@@ -122,7 +160,17 @@ func (s *Service) get(ctx context.Context, address string, limit int64) (*http.R
 		if response.ContentLength > limit {
 			return nil, app.Wrap(app.ResponseTooLarge, "The update response exceeds its size limit.", closeErr)
 		}
-		failure := app.Wrap(app.NetworkError, fmt.Sprintf("GitHub Releases returned HTTP %d. Retry later or download the release manually.", response.StatusCode), closeErr)
+		message := fmt.Sprintf("GitHub Releases returned HTTP %d. Retry later or download the release manually.", response.StatusCode)
+		if response.StatusCode == 429 || (response.StatusCode == 403 && (response.Header.Get("X-RateLimit-Remaining") == "0" || response.Header.Get("Retry-After") != "")) {
+			message = "GitHub API rate limit reached. Retry later; no automatic retry was attempted."
+			if value := response.Header.Get("Retry-After"); value != "" {
+				message += " Retry-After: " + value + "."
+			}
+			if value := response.Header.Get("X-RateLimit-Reset"); value != "" {
+				message += " Reset (Unix seconds): " + value + "."
+			}
+		}
+		failure := app.Wrap(app.NetworkError, message, closeErr)
 		failure.HTTPStatus = response.StatusCode
 		return nil, failure
 	}

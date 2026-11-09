@@ -67,7 +67,7 @@ def run_shell_tests(tag, release_directory):
         folder = "sotea-" + tag + "-" + target
         with tarfile.open(release_directory / (folder + ".tar.gz"), "r:gz") as archive:
             binary = archive.extractfile(folder + "/sotea").read()
-    scenarios = ["success", "checksum", "duplicate-checksum", "symlink", "existing", "download", "latest", "invalid-tag", "path", "bash-profile", "destination-race"]
+    scenarios = ["success", "checksum", "duplicate-checksum", "symlink", "existing", "download", "latest", "invalid-tag", "path", "bash-profile", "destination-race", "auth-env", "auth-gh", "auth-git", "auth-rejected", "auth-anonymous", "auth-rate"]
     if binary is None:
         scenarios.append("wrong-version")
     with tempfile.TemporaryDirectory(prefix="sotea-installer-tests-") as temporary:
@@ -75,14 +75,25 @@ def run_shell_tests(tag, release_directory):
         helpers = base / "helpers"
         helpers.mkdir()
         curl = helpers / "curl"
-        curl.write_text("#!" + sys.executable + "\n" + '''import os, sys, shutil
+        curl.write_text("#!" + sys.executable + "\n" + '''import os, sys, shutil, json
 from pathlib import Path
 args = sys.argv[1:]
 fixture = Path(os.environ['SOTEA_INSTALL_FIXTURE'])
 url = next(value for value in args if value.startswith('https://'))
+header = sys.stdin.read() if '--config' in args else ''
+if header and not url.startswith('https://api.github.com/'):
+    raise AssertionError('Credential sent to asset')
+if url.startswith('https://api.github.com/'):
+    with (fixture / 'auth-requests').open('a') as record:
+        record.write(header.strip()+'\\n')
 with (fixture / 'requests').open('a') as output:
     output.write(url + '\\n')
 repo = 'https://github.com/Spring-Ocean/gitea-cli-so'
+if url == 'https://api.github.com/repos/Spring-Ocean/gitea-cli-so/releases/latest':
+    Path(args[args.index('--output')+1]).write_text(json.dumps({'tag_name':os.environ['SOTEA_INSTALL_TAG']}))
+    status = '401' if 'rejected-fixture' in header else ('403' if os.environ.get('SOTEA_INSTALL_AUTH_SCENARIO')=='auth-rate' else '200')
+    print(status,end='')
+    sys.exit(0)
 if url == repo + '/releases/latest':
     print(repo + '/releases/tag/' + os.environ['SOTEA_INSTALL_TAG'], end='')
     sys.exit(0)
@@ -99,6 +110,15 @@ if name == 'SHA256SUMS' and os.environ.get('SOTEA_INSTALL_RACE_TARGET'):
     (destination / 'keep-existing').write_bytes(b'keep-existing')
 ''')
         curl.chmod(0o755)
+        for helper in ("gh", "git"):
+            path = helpers / helper
+            path.write_text("#!" + sys.executable + "\n" + "import os,sys\nfrom pathlib import Path\n" +
+                "name=Path(sys.argv[0]).name\ns=os.environ.get('SOTEA_INSTALL_AUTH_SCENARIO','')\n" +
+                "assert os.environ.get('GIT_TERMINAL_PROMPT')=='0'\n" +
+                "if (name=='gh' and s!='auth-gh') or (name=='git' and s!='auth-git'): sys.exit(1)\n" +
+                "if name=='gh': print('gh-fixture')\n" +
+                "else:\n assert 'host=github.com' in sys.stdin.read()\n print('protocol=https\\nhost=github.com\\npassword=git-fixture')\n")
+            path.chmod(0o755)
         uname = helpers / "uname"
         uname.write_text("#!/bin/sh\ncase \"$1\" in\n-s) echo Darwin ;;\n-m) echo " + ("arm64" if architecture == "arm64" else "x86_64") + " ;;\n*) exit 1 ;;\nesac\n")
         uname.chmod(0o755)
@@ -114,8 +134,18 @@ if name == 'SHA256SUMS' and os.environ.get('SOTEA_INSTALL_RACE_TARGET'):
             if scenario == "existing":
                 install_directory.mkdir()
                 target_path.write_bytes(b"keep-existing")
-            environment = dict(os.environ, HOME=str(home), SHELL="/bin/zsh", PATH=str(helpers) + os.pathsep + os.environ["PATH"],
+            environment = dict(os.environ, SOTEA_GITHUB_AUTH="anonymous", HOME=str(home), SHELL="/bin/zsh", PATH=str(helpers) + os.pathsep + os.environ["PATH"],
                                SOTEA_INSTALL_FIXTURE=str(fixture), SOTEA_INSTALL_TAG=tag)
+            for key in ("SOTEA_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"):
+                environment[key] = ""
+            if scenario.startswith("auth-"):
+                environment.update(SOTEA_GITHUB_AUTH="auto", SOTEA_INSTALL_AUTH_SCENARIO=scenario)
+                if scenario in {"auth-env", "auth-anonymous"}:
+                    environment.update(SOTEA_GITHUB_TOKEN="dedicated-fixture", GH_TOKEN="second-fixture", GITHUB_TOKEN="third-fixture")
+                if scenario == "auth-rejected":
+                    environment["SOTEA_GITHUB_TOKEN"] = "rejected-fixture"
+                if scenario == "auth-anonymous":
+                    environment["SOTEA_GITHUB_AUTH"] = "anonymous"
             if scenario == "download":
                 environment["SOTEA_INSTALL_DOWNLOAD_FAIL"] = "1"
             if scenario == "bash-profile":
@@ -124,14 +154,18 @@ if name == 'SHA256SUMS' and os.environ.get('SOTEA_INSTALL_RACE_TARGET'):
             if scenario == "destination-race":
                 environment["SOTEA_INSTALL_RACE_TARGET"] = str(target_path)
             arguments = ["sh", str(ROOT / "scripts/install.sh")]
-            if scenario != "latest":
+            if scenario != "latest" and not scenario.startswith("auth-"):
                 arguments += ["--version", "../unsafe" if scenario == "invalid-tag" else tag]
             if scenario not in {"path", "bash-profile"}:
                 arguments += ["--install-dir", str(install_directory), "--no-modify-path"]
             result = subprocess.run(arguments, env=environment, capture_output=True, text=True, timeout=60)
-            success = scenario in {"success", "latest", "path", "bash-profile"}
+            success = scenario in {"success", "latest", "path", "bash-profile"} or (scenario.startswith("auth-") and scenario != "auth-rate")
             if (result.returncode == 0) != success:
                 raise AssertionError(scenario + ": " + result.stdout + result.stderr)
+            if scenario.startswith("auth-"):
+                requests = (fixture / 'auth-requests').read_text().splitlines()
+                expected = {"auth-env": ['header = "Authorization: Bearer dedicated-fixture"'], "auth-gh": ['header = "Authorization: Bearer gh-fixture"'], "auth-git": ['header = "Authorization: Bearer git-fixture"'], "auth-rejected": ['header = "Authorization: Bearer rejected-fixture"', ''], "auth-anonymous": [''], "auth-rate": ['']}
+                assert requests == expected[scenario], (scenario, requests)
             if success:
                 assert target_path.is_file(), scenario
                 assert subprocess.check_output([str(target_path), "version"], text=True).strip() == "sotea " + tag
@@ -179,7 +213,7 @@ def run_windows_tests(tag, release_directory, powershell):
             if scenario == "existing":
                 install_directory.mkdir()
                 target.write_bytes(b"keep-existing")
-            environment = dict(os.environ, SOTEA_INSTALL_FIXTURE=str(fixture), SOTEA_INSTALL_TAG=tag,
+            environment = dict(os.environ, SOTEA_GITHUB_AUTH="anonymous", SOTEA_INSTALL_FIXTURE=str(fixture), SOTEA_INSTALL_TAG=tag,
                                SOTEA_INSTALL_SCENARIO=scenario, SOTEA_INSTALL_TARGET=str(install_directory))
             result = subprocess.run([powershell, "-NoProfile", "-NonInteractive", "-File", str(harness)],
                                     env=environment, capture_output=True, text=True, timeout=90)

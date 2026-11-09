@@ -25,13 +25,14 @@ func addUpdateCommands(root *cobra.Command, r *runtime, version string) {
 		},
 	}
 	var prerelease bool
+	command.PersistentFlags().String("github-auth", os.Getenv("SOTEA_GITHUB_AUTH"), "GitHub authentication: auto or anonymous (default auto)")
 	command.PersistentFlags().BoolVar(&prerelease, "prerelease", false, "Include prereleases; RC installations include them by default")
 	command.AddCommand(&cobra.Command{
 		Use:   "check",
 		Short: "Check GitHub Releases now, bypassing the automatic five-hour interval",
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, args []string) error {
-			service, err := update.New()
+			service, err := newUpdateService(command)
 			if err != nil {
 				return err
 			}
@@ -74,7 +75,7 @@ func (r *runtime) installUpdate(command *cobra.Command, version string, prerelea
 	if !r.options.yes && !r.interactive(command) {
 		return app.Wrap(app.InvalidArgument, "Installing an update requires confirmation. Use --yes in non-interactive mode, or run sotea update check first.", nil)
 	}
-	service, err := update.New()
+	service, err := newUpdateService(command)
 	if err != nil {
 		return err
 	}
@@ -240,4 +241,14 @@ func (r *runtime) updateMenu(command *cobra.Command, version string) error {
 			}
 		}
 	}
+}
+
+// newUpdateService 解析显式更新命令的认证模式。
+// Home由环境变量控制，不修改进程环境或任何已有凭证。
+func newUpdateService(command *cobra.Command) (*update.Service, error) {
+	mode := os.Getenv("SOTEA_GITHUB_AUTH")
+	if flag := command.Flag("github-auth"); flag != nil {
+		mode = flag.Value.String()
+	}
+	return update.NewWithAuth(mode)
 }

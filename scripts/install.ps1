@@ -7,8 +7,78 @@
 param(
     [string]$Version = '',
     [string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA 'Programs\sotea'),
-    [switch]$NoModifyPath
+    [switch]$NoModifyPath,
+    [ValidateSet("auto", "anonymous")]
+    [string]$GitHubAuth = $(if ($env:SOTEA_GITHUB_AUTH) { $env:SOTEA_GITHUB_AUTH } else { "auto" })
 )
+
+# Invoke-CredentialQuery 在隔离目录查询只读凭证，禁止提示且限制为五秒。
+# 子进程输出仅留内存，不转发stderr，超时立即终止并释放进程资源。
+function Invoke-CredentialQuery([string]$Name, [string]$Arguments, [string]$InputText, [string]$Directory) {
+    $application = Get-Command $Name -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $application) { return '' }
+    $process = New-Object Diagnostics.Process
+    try {
+        $info = New-Object Diagnostics.ProcessStartInfo
+        $info.FileName = $application.Source
+        $info.Arguments = $Arguments
+        $info.WorkingDirectory = $Directory
+        $info.UseShellExecute = $false
+        $info.CreateNoWindow = $true
+        $info.RedirectStandardInput = $true
+        $info.RedirectStandardOutput = $true
+        $info.RedirectStandardError = $true
+        foreach ($key in @($info.EnvironmentVariables.Keys)) {
+            if ($key -like 'GIT_*') { $info.EnvironmentVariables.Remove($key) }
+        }
+        $info.EnvironmentVariables['GIT_TERMINAL_PROMPT'] = '0'
+        $info.EnvironmentVariables['GIT_ASKPASS'] = ''
+        $info.EnvironmentVariables['GCM_INTERACTIVE'] = 'Never'
+        $info.EnvironmentVariables['GH_PROMPT_DISABLED'] = '1'
+        $process.StartInfo = $info
+        if (-not $process.Start()) { return '' }
+        $credentialChars = New-Object char[] 16385
+        $readOutput = $process.StandardOutput.ReadBlockAsync($credentialChars, 0, $credentialChars.Length)
+        $process.StandardInput.Write($InputText)
+        $process.StandardInput.Close()
+        if (-not $process.WaitForExit(5000)) {
+            $process.Kill()
+            $process.WaitForExit()
+            return ''
+        }
+        if ($process.ExitCode -ne 0) { return '' }
+        if (-not $readOutput.Wait(500) -or $readOutput.Result -gt 16384) { return '' }
+        $value = [string]::new($credentialChars, 0, $readOutput.Result)
+        return $value.TrimEnd([char[]]"`r`n")
+    }
+    catch { return '' }
+    finally { $process.Dispose() }
+}
+
+# Get-GitHubCredential 按环境、gh、Git helper顺序查询固定github.com的token。
+# 不修改凭证存储，SSH及浏览器会话不参与；无可用凭证时返回空值。
+function Get-GitHubCredential {
+    foreach ($value in @($env:SOTEA_GITHUB_TOKEN, $env:GH_TOKEN, $env:GITHUB_TOKEN)) {
+        if ($value -cmatch '^[A-Za-z0-9_.-]+\z') { return $value }
+    }
+    $directory = Join-Path ([IO.Path]::GetTempPath()) ('sotea-github-auth-' + [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $directory | Out-Null
+    try {
+        $value = Invoke-CredentialQuery 'gh' 'auth token --hostname github.com' '' $directory
+        if ($value -cmatch '^[A-Za-z0-9_.-]+\z') { return $value }
+        $reply = Invoke-CredentialQuery 'git' '-c core.askPass= -c credential.interactive=false credential fill' "protocol=https`nhost=github.com`npath=Spring-Ocean/gitea-cli-so`n`n" $directory
+        $fields = @{}
+        foreach ($line in ($reply -split "`n")) {
+            $pair = $line.TrimEnd([char]13) -split '=', 2
+            if ($pair.Count -eq 2) { $fields[$pair[0]] = $pair[1] }
+        }
+        if ($fields['protocol'] -ceq 'https' -and $fields['host'] -ceq 'github.com' -and (-not $fields['path'] -or $fields['path'] -ceq 'Spring-Ocean/gitea-cli-so') -and $fields['password'] -cmatch '^[A-Za-z0-9_.-]+\z') {
+            return $fields['password']
+        }
+        return ''
+    }
+    finally { Remove-Item -LiteralPath $directory -Recurse -Force }
+}
 
 $ErrorActionPreference = 'Stop'
 $downloadDirectory = $null
@@ -33,13 +103,29 @@ try {
     [Net.ServicePointManager]::SecurityProtocol = $originalProtocol -bor [Net.SecurityProtocolType]::Tls12
     $repository = 'https://github.com/Spring-Ocean/gitea-cli-so'
     if (-not $Version) {
+        $headers = @{ Accept = 'application/vnd.github+json' }
+        if ($GitHubAuth -eq 'auto') {
+            $token = Get-GitHubCredential
+            if ($token) { $headers['Authorization'] = "Bearer $token" }
+            $token = $null
+        }
         try {
-            $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/Spring-Ocean/gitea-cli-so/releases/latest' `
-                -Headers @{ Accept = 'application/vnd.github+json' } -TimeoutSec 60
+            try {
+                $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/Spring-Ocean/gitea-cli-so/releases/latest' -Headers $headers -MaximumRedirection 0 -TimeoutSec 60
+            }
+            catch {
+                if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 401 -and $headers.ContainsKey('Authorization')) {
+                    Write-Warning 'GitHub credential was rejected; retrying anonymously once.'
+                    $headers.Remove('Authorization')
+                    $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/Spring-Ocean/gitea-cli-so/releases/latest' -Headers $headers -MaximumRedirection 0 -TimeoutSec 60
+                }
+                else { throw }
+            }
         }
         catch {
-            throw 'No stable release could be resolved. For a release candidate, pass -Version vX.Y.Z-rc.N.'
+            throw 'Unable to resolve a stable release. GitHub may be unavailable or rate limited; retry later or pass an exact -Version to avoid the API query.'
         }
+        finally { $headers.Remove('Authorization') }
         if ($release.draft -or $release.prerelease) {
             throw 'GitHub did not return a stable public release.'
         }

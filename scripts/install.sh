@@ -5,6 +5,7 @@ set -eu
 
 repository='https://github.com/Spring-Ocean/gitea-cli-so'
 version=''
+github_auth=${SOTEA_GITHUB_AUTH:-auto}
 install_directory="$HOME/.local/bin"
 modify_path=true
 download_directory=''
@@ -33,6 +34,11 @@ trap 'exit 143' TERM
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
+        --github-auth)
+            [ "$#" -ge 2 ] || fail '--github-auth requires auto or anonymous.'
+            github_auth=$2
+            shift 2
+            ;;
         --version)
             [ "$#" -ge 2 ] || fail '--version requires a release tag.'
             version=$2
@@ -48,7 +54,7 @@ while [ "$#" -gt 0 ]; do
             shift
             ;;
         --help|-h)
-            printf '%s\n' 'Usage: sh install.sh [--version vX.Y.Z[-rc.N]] [--install-dir /absolute/path] [--no-modify-path]' \
+            printf '%s\n' 'Usage: sh install.sh [--version vX.Y.Z[-rc.N]] [--install-dir /absolute/path] [--no-modify-path] [--github-auth auto|anonymous]' \
                 'Without --version, install the latest stable release. Existing installations are never overwritten.'
             exit 0
             ;;
@@ -78,15 +84,65 @@ if [ -e "$target" ] || [ -L "$target" ]; then
     fail "An installation already exists at $target. Use sotea update install."
 fi
 
+case "$github_auth" in auto|anonymous) ;; *) fail 'GitHub authentication must be auto or anonymous.' ;; esac
+
+# auth_command 在仓库外执行只读凭证查询，并限制等待时间。
+# 输出仅保留在命令替换内存中，stderr及任何登录提示均禁止。
+auth_command() (
+    cd "$download_directory" || exit 1
+    for auth_key in $(env | sed -n 's/^\(GIT_[A-Za-z0-9_]*\)=.*/\1/p'); do unset "$auth_key"; done
+    export GIT_TERMINAL_PROMPT=0 GIT_ASKPASS='' GCM_INTERACTIVE=Never GH_PROMPT_DISABLED=1
+    exec 3<&0
+    "$@" <&3 2>/dev/null &
+    auth_pid=$!
+    (sleep 5; kill "$auth_pid" 2>/dev/null) >/dev/null 2>&1 &
+    auth_timer=$!
+    auth_status=0
+    wait "$auth_pid" || auth_status=$?
+    kill "$auth_timer" 2>/dev/null || :
+    wait "$auth_timer" 2>/dev/null || :
+    exit "$auth_status"
+)
+
+# github_token 按明确优先级读取固定github.com的凭证，不写入任何存储。
+# Git helper只能提供完整匹配的HTTPS上下文；缺失或失败回退匿名。
+github_token() {
+    for auth_value in "${SOTEA_GITHUB_TOKEN:-}" "${GH_TOKEN:-}" "${GITHUB_TOKEN:-}"; do
+        case "$auth_value" in ''|*[!A-Za-z0-9_.-]*) ;; *) printf '%s' "$auth_value"; return ;; esac
+    done
+    auth_value=$(auth_command gh auth token --hostname github.com) || auth_value=''
+    case "$auth_value" in ''|*[!A-Za-z0-9_.-]*) ;; *) printf '%s' "$auth_value"; return ;; esac
+    auth_reply=$(printf 'protocol=https\nhost=github.com\npath=Spring-Ocean/gitea-cli-so\n\n' | auth_command git -c core.askPass= -c credential.interactive=false credential fill) || return 0
+    printf '%s\n' "$auth_reply" | awk '
+      /^protocol=https$/ { protocol=1 }
+      /^host=github.com$/ { host=1 }
+      /^path=/ { path=substr($0,6) }
+      /^password=/ { token=substr($0,10) }
+      END { if (protocol && host && (path == "" || path == "Spring-Ocean/gitea-cli-so") && token ~ /^[A-Za-z0-9_.-]+$/) printf "%s", token }
+    '
+}
+
 if [ -z "$version" ]; then
-    latest=$(curl --proto '=https' --proto-redir '=https' --tlsv1.2 --fail --silent --show-error \
-        --location --connect-timeout 15 --max-time 60 --head --output /dev/null \
-        --write-out '%{url_effective}' "$repository/releases/latest") || \
-        fail 'No stable release could be resolved. For a release candidate, pass --version vX.Y.Z-rc.N.'
-    case "$latest" in
-        "$repository/releases/tag/"*) version=${latest#"$repository/releases/tag/"} ;;
-        *) fail 'GitHub did not return an official release tag.' ;;
+    download_directory=$(mktemp -d "${TMPDIR:-/tmp}/sotea-download.XXXXXX")
+    auth_token=''
+    if [ "$github_auth" = auto ]; then auth_token=$(github_token); fi
+    # 认证仅用于不跟随跳转的固定API，头通过stdin传递而不是进程参数。
+    # 仅401可匿名重试一次；403／429保留失败，不轮换凭证或连续重试。
+    api_url='https://api.github.com/repos/Spring-Ocean/gitea-cli-so/releases/latest'
+    api_status=$(if [ -n "$auth_token" ]; then printf 'header = "Authorization: Bearer %s"\n' "$auth_token"; fi | curl --disable --config - --proto '=https' --tlsv1.2 --silent --show-error --connect-timeout 15 --max-time 60 --max-filesize 2097152 --output "$download_directory/latest.json" --write-out '%{http_code}' "$api_url") || fail 'Unable to reach GitHub Releases.'
+    if [ "$api_status" = 401 ] && [ -n "$auth_token" ]; then
+        printf '%s\n' 'Warning: GitHub credential was rejected; retrying anonymously once.' >&2
+        api_status=$(curl --disable --proto '=https' --tlsv1.2 --silent --show-error --connect-timeout 15 --max-time 60 --max-filesize 2097152 --output "$download_directory/latest.json" --write-out '%{http_code}' "$api_url") || fail 'Unable to reach GitHub Releases.'
+    fi
+    auth_token=''
+    case "$api_status" in
+        200) ;;
+        403|429) fail 'GitHub API access was denied or rate limited. Retry later, or pass an exact --version to avoid the API query.' ;;
+        *) fail 'No stable release could be resolved. Pass an exact --version for a release candidate.' ;;
     esac
+    version=$(sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"\]*\)".*/\1/p' "$download_directory/latest.json")
+    rm -rf "$download_directory"
+    download_directory=''
 fi
 [ "${#version}" -le 128 ] || fail 'The release tag is too long.'
 printf '%s\n' "$version" | LC_ALL=C grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$' || \

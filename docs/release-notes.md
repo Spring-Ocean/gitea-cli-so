@@ -1,34 +1,34 @@
 ## 版本状态 / Release status
 
-**{{RELEASE_TAG}} 是基于 v0.1.0-rc.3 的小型修复预发布版，不是正式稳定版。** 本次修复 HTTPS 写入返回结果未知、Windows 一键安装文本解码，并补充模型可直接发现的 MCP 参数指引。
+**{{RELEASE_TAG}} 是基于 v0.1.0-rc.4 的小型修复预发布版，不是正式稳定版。** 本次为更新器和首次安装脚本增加已有 GitHub 凭证复用，降低匿名 API 配额耗尽造成的更新失败概率。
 
-**{{RELEASE_TAG}} is a small bug-fix prerelease based on v0.1.0-rc.3, not a stable release.** It fixes unknown outcomes on HTTPS writes and Windows installer text decoding, and adds discoverable MCP argument guidance.
+**{{RELEASE_TAG}} is a small bug-fix prerelease based on v0.1.0-rc.4, not a stable release.** It reuses existing GitHub credentials in the updater and first-install scripts to reduce failures caused by exhausted anonymous API quotas.
 
 ## 修复内容 / Fixes
 
-- **HTTPS 写入**：修复写连接禁用 HTTP/2 后仍在 TLS ALPN 中宣告 h2 的协议错配。写连接现在只协商 HTTP/1.1，解决支持 HTTP/2 的实例可能出现读取／prepare 成功而 Release 等 commit 返回 RESULT_UNKNOWN 的问题；继续禁止自动重放写入。
-- **Windows 首次安装**：从 Invoke-WebRequest.RawContentStream 获取原始字节，显式 UTF-8 解码后移除 BOM。rc.3 的 TrimStart 无法修复已经被 HTTP 字符集误解码的 BOM；脚本文件继续保留 BOM 和 #Requires，兼容 PowerShell 5.1 文件执行，不更改执行策略。
-- **MCP 参数指引**：初始化 instructions、工具／字段描述和完整 examples 说明 tag／target 与 Gitea tag_name／target_commitish 的区别，以及创建／编辑、单个／批量编号和未知结果恢复；严格拒绝错误字段，不添加隐式别名。
-- 保留 rc.2 的 Codex MCP 配置父表修复。此前公开标签、附件和说明保持原样。
+- **自动认证**：auto 按 SOTEA_GITHUB_TOKEN → GH_TOKEN → GITHUB_TOKEN → gh auth token --hostname github.com → Git HTTPS credential helper → 匿名的顺序查找。无需安装 gh 或 Git；查询在仓库外执行且禁止交互，有超时和输出限制。
+- **认证边界**：仅固定仓库的 GitHub Releases API 携带认证，附件及跳转保持匿名；不读取 Gitea token，不保存、记录或通过命令参数传递 token。
+- **匿名模式**：更新命令支持 --github-auth anonymous，macOS 安装脚本支持 --github-auth anonymous，Windows 支持 -GitHubAuth anonymous；环境变量 SOTEA_GITHUB_AUTH=anonymous 同时约束 Home、更新器和安装脚本。
+- **回退与限流**：401 单次匿名回退并提示，不删除共享凭证；403／429 不自动重试或轮换凭证。更新器显示可用的限流恢复信息，Home 继续遵守五小时冷却。
+- **首次安装**：显式版本无需查询 API 或读取凭证；未指定版本时，两种脚本查询最新稳定版。认证不能解决附件下载的 HTTP 504。
+- 保留 rc.4 的 HTTPS 写入 ALPN、Windows 原始字节 UTF-8 解码及 MCP 参数指引修复；旧公开标签和附件保持不变。
 
-- **HTTPS writes**: Fix a TLS ALPN mismatch that advertised h2 after disabling HTTP/2 on write connections. Writes now negotiate HTTP/1.1 only, fixing cases where reads/preparation succeeded but Release and other commits returned RESULT_UNKNOWN on HTTP/2-enabled instances. Automatic write replay remains disabled.
-- **First installation on Windows**: Read raw bytes from Invoke-WebRequest.RawContentStream, explicitly decode UTF-8, then remove the BOM. The rc.3 TrimStart command could not repair an already misdecoded BOM. Script files retain their BOM and #Requires for PowerShell 5.1 file execution, without changing execution policy.
-- **MCP argument guidance**: Initialization instructions, tool/property descriptions, and complete examples clarify tag/target versus Gitea tag_name/target_commitish, create/edit shapes, single/batch numbers, and unknown-outcome recovery. Invalid fields remain rejected without implicit aliases.
-- Retain the Codex MCP parent-table configuration fix from rc.2. Earlier public tags, assets, and notes remain unchanged.
+- **Automatic authentication**: auto tries SOTEA_GITHUB_TOKEN → GH_TOKEN → GITHUB_TOKEN → gh auth token --hostname github.com → Git HTTPS credential helper → anonymous. Neither gh nor Git is required. Queries run outside repositories without interaction and with time/output limits.
+- **Authentication boundaries**: Only the fixed repository's GitHub Releases API receives authentication. Assets and redirects remain anonymous. Gitea tokens are never read; tokens are not saved, logged, or placed in process arguments.
+- **Anonymous mode**: Use --github-auth anonymous for updates and the macOS installer, or -GitHubAuth anonymous for the Windows installer. SOTEA_GITHUB_AUTH=anonymous also controls Home, updates, and installers.
+- **Fallback and rate limits**: A 401 triggers one anonymous retry with a warning, without deleting shared credentials. A 403/429 does not trigger automatic retries or credential rotation. The updater reports available reset information; Home retains its five-hour cooldown.
+- **First installation**: An explicit version skips API queries and credential lookup. Without a version, both installers query the latest stable release. Authentication does not resolve HTTP 504 errors when downloading assets.
+- Retain the rc.4 HTTPS write ALPN, Windows raw-byte UTF-8 decoding, and MCP argument-guidance fixes. Earlier public tags and assets remain unchanged.
 
 ## 验证范围 / Validation scope
 
-原 UTF-8 字符串替身不能证明真实 HTTP 下载解码正确，本轮已替换成 loopback HTTP：覆盖四种 Content-Type、BOM／无 BOM、三个实际文档命令和 HTTP 失败。Windows PowerShell 5.1／PowerShell 的原生结果须在发布前单独核验，不以 macOS PowerShell 通过代替。
+Go 全量测试、vet、更新器／CLI race、三目标构建，以及固定 API 认证、401 零额外重试、限流信息、凭证环境与 helper 作用域回归通过。sh 覆盖 18 个安装／认证场景；PowerShell 覆盖真实 HTTP 字符集／BOM 27 场景及凭证子进程、环境优先级、匿名和401回退。PS5.1／PowerShell 原生检查由 CI 与最终归档 Release 门禁执行；本机 PS7 结果不能代替 Windows 桌面验收。
 
-The previous UTF-8 string fixture did not validate real HTTP response decoding. It is replaced with loopback HTTP covering four Content-Type variants, BOM/no-BOM responses, the actual commands in three documents, and HTTP failure. Native Windows PowerShell 5.1 and PowerShell results must be verified before publication; macOS PowerShell checks are not substitutes.
+Full Go tests, vet, updater/CLI race checks, three-target builds, and regressions for fixed API authentication, bounded 401 fallback, rate-limit diagnostics, credential environments and helper scopes pass. The sh tests cover 18 installation/authentication cases; PowerShell tests cover 27 real HTTP charset/BOM cases plus credential subprocesses, environment precedence, anonymous mode and 401 fallback. Native PS5.1/PowerShell checks are enforced by CI and final-archive release gates; local PS7 results do not replace Windows desktop acceptance.
 
-MCP 回归通过真实 SDK 初始化／工具发现核对说明与示例，并验证错误 API 字段被拒绝、正确 sotea 字段进入应用层且不发送业务写。自然语言模型生成参数和四客户端完整 UI 仍需真实客户端验收。
+测试使用合成凭证、隔离 helper 和本地服务，不读取真实开发者凭证。真实系统凭证／GCM 集成、目标桌面、GUI 终端与客户端完整 UI 仍待验收。未改 Gitea API，不重复七版本业务矩阵。
 
-MCP regression checks verify instructions and examples through actual SDK initialization/tool discovery, reject raw API aliases, and accept canonical sotea fields without business writes. Natural-language argument generation and complete UI flows remain subject to real-client validation.
-
-HTTPS 协议回归覆盖 HTTP/2 读取后单次 HTTP/1.1 写入，以及中文预发布正文的 Release 准备、创建和读回，保护零重放。未修改 Gitea API 路径、认证、字段序列化或业务请求／响应契约，不重复七版本业务矩阵。
-
-HTTPS regression checks cover an HTTP/2 read followed by a single HTTP/1.1 write, and Release preparation, creation, and read-back with Chinese prerelease notes. Writes remain non-replayed. Gitea API paths, authentication, serialization, and business request/response contracts are unchanged, so this patch does not repeat the seven-version workflow matrix.
+Tests use synthetic credentials, isolated helpers and local services, without reading real developer credentials. Real credential-store/GCM integration, target desktops, GUI terminals and full client UI remain pending. Gitea APIs are unchanged, so this patch does not repeat the seven-version workflow matrix.
 
 ## 安装 / Installation
 
@@ -59,6 +59,10 @@ Windows · PowerShell 5.1 / PowerShell:
 ```
 
 ## 升级 / Upgrade
+
+旧 rc.4 程序升级时仍使用旧匿名策略；凭证复用在 rc.5 安装并重启后生效。若旧版遇限流，请等待配额恢复或手动替换已校验的程序包。
+
+An rc.4 binary still uses its previous anonymous strategy when upgrading. Credential reuse takes effect after installing rc.5 and restarting. If the old version is rate limited, wait for the quota reset or manually replace it with a verified archive.
 
 已返回 unknown 的旧计划不会因升级而自动恢复或重试。重启 MCP 后先只读核对远端 Release／标签；确认目标状态并获得授权后，使用新的 request_id 准备写入。
 

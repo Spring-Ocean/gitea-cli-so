@@ -65,6 +65,9 @@ func (s *Service) Check(ctx context.Context, current string, prerelease, force b
 	} else {
 		record.Error = app.Failure(checkErr).Message
 	}
+	if s.credentialRejected != nil && s.credentialRejected.Load() {
+		result.Warning = "GitHub credential was rejected; this check retried anonymously once. Refresh your GitHub credential or select anonymous authentication."
+	}
 	result.CheckedAt = record.Attempt
 	return result, errors.Join(checkErr, s.saveCache(record))
 }

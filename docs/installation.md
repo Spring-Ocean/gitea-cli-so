@@ -14,7 +14,7 @@ sotea 的一个可执行文件同时提供 CLI、交互菜单和本地 MCP 服�
 
 ## 脚本首次安装
 
-安装脚本自动选择架构，从固定仓库下载压缩包和 SHA256SUMS，核对 SHA-256 与程序版本，再安装到用户目录。无需管理员权限；不覆盖已有程序，已有安装使用 `sotea update install`。无版本参数时只选择最新稳定版；目前为 RC，必须显式指定 `v0.1.0-rc.4`。没有稳定版时会清晰报错，不悄悄切换到 RC。
+安装脚本自动选择架构，从固定仓库下载压缩包和 SHA256SUMS，核对 SHA-256 与程序版本，再安装到用户目录。无需管理员权限；不覆盖已有程序，已有安装使用 `sotea update install`。无版本参数时只选择最新稳定版；目前为 RC，必须显式指定 `v0.1.0-rc.5`。没有稳定版时会清晰报错，不悄悄切换到 RC。
 
 macOS，在 Terminal／iTerm2 复制整段执行：
 
@@ -24,9 +24,9 @@ macOS，在 Terminal／iTerm2 复制整段执行：
     installer=$(mktemp)
     trap 'rm -f "$installer"' EXIT
     curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL \
-        https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.4/install.sh \
+        https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.5/install.sh \
         -o "$installer"
-    sh "$installer" --version v0.1.0-rc.4
+    sh "$installer" --version v0.1.0-rc.5
 )
 ```
 
@@ -35,7 +35,7 @@ macOS，在 Terminal／iTerm2 复制整段执行：
 Windows，在 64 位 Windows PowerShell 5.1 或 PowerShell 中执行：
 
 ```powershell
-& ([scriptblock]::Create([Text.Encoding]::UTF8.GetString((Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri 'https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.4/install.ps1').RawContentStream.ToArray()).TrimStart([char]0xFEFF))) -Version v0.1.0-rc.4
+& ([scriptblock]::Create([Text.Encoding]::UTF8.GetString((Invoke-WebRequest -UseBasicParsing -ErrorAction Stop -Uri 'https://github.com/Spring-Ocean/gitea-cli-so/releases/download/v0.1.0-rc.5/install.ps1').RawContentStream.ToArray()).TrimStart([char]0xFEFF))) -Version v0.1.0-rc.5
 ```
 
 上例从响应的 `RawContentStream` 取得原始字节，明确按 UTF-8 解码并移除前导 BOM，再在当前 PowerShell 中执行，不更改系统执行策略。`rc.1` 至 `rc.3` 的旧下载文本命令可能受 HTTP 字符集解码影响：BOM 被误解码后不再是 U+FEFF，仅 `TrimStart` 无法修复，因此仍会在 `CmdletBinding`／`param` 处报错。上面的新命令适用于原有附件，无需删除 BOM 或更改脚本头。
@@ -165,3 +165,7 @@ if ($LASTEXITCODE -ne 0) {
 共享 Git helper 凭证默认保留。只有明确需要时使用 `auth logout --forget-git` 并额外确认；环境 token 需要在宿主环境中移除并重启相关进程。配置位置和凭证范围见 [配置与认证](configuration.md)。
 
 [返回文档目录](README.md)
+
+## GitHub 凭证与限流
+
+源码中的首次安装器与更新器默认按专用环境变量、通用环境变量、gh和Git helper顺序复用GitHub凭证；无凭证则匿名。macOS支持 `--github-auth anonymous`，Windows支持 `-GitHubAuth anonymous`，也可设置 `SOTEA_GITHUB_AUTH=anonymous`。显式版本安装不查API、不读取凭证；仅解析最新稳定版时使用认证，附件下载保持匿名。新参数从rc.5开始提供，旧版脚本保持原样。完整优先级、401回退和限流边界见[更新说明](updates.md#github-认证)。
