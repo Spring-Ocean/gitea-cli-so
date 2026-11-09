@@ -50,12 +50,16 @@ try {
     $queryFunction = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-CredentialQuery' }, $true)
     $queryFixture = $queryFunction.Extent.Text
     $queryFixture = $queryFixture.Replace("catch { return '' }", 'catch { throw }')
-    $queryFixture = $queryFixture.Replace('if ($process.ExitCode -ne 0) { return '''' }', 'if ($process.ExitCode -ne 0) { throw ''Synthetic credential child exited unsuccessfully.'' }')
+    $queryFixture = $queryFixture.Replace('if ($process.ExitCode -ne 0) { return '''' }', 'if ($process.ExitCode -ne 0) { throw (''Synthetic credential child exit: '' + $process.ExitCode) }')
     Invoke-Expression $queryFixture
     $env:GIT_DIR = 'injected-repository'
     $env:GIT_CONFIG_COUNT = '99'
     $executable = [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
-    $childArguments = '-NoProfile -NonInteractive -Command "if ($env:GIT_DIR -or $env:GIT_CONFIG_COUNT -or $env:GIT_TERMINAL_PROMPT -ne ''0'' -or $env:GCM_INTERACTIVE -ne ''Never'') { exit 2 }; if ([Console]::ReadLine() -ne ''query'') { exit 3 }; [Console]::Write(''helper-fixture'')"'
+    # 使用-File模拟从stdin读取协议的CLI，避免旧版-Command宿主预消费管道输入。
+    # 文件只含固定合成检查，不依赖用户配置或执行策略更改。
+    $childFile = Join-Path $temporary 'credential-child.ps1'
+    [IO.File]::WriteAllText($childFile, 'if ($env:GIT_DIR -or $env:GIT_CONFIG_COUNT -or $env:GIT_TERMINAL_PROMPT -ne "0" -or $env:GCM_INTERACTIVE -ne "Never") { exit 2 }; if ([Console]::ReadLine() -ne "query") { exit 3 }; [Console]::Write("helper-fixture")')
+    $childArguments = '-NoProfile -NonInteractive -File "' + $childFile + '"'
     $queried = Invoke-CredentialQuery $executable $childArguments "query`n" $temporary
     if ($queried -cne 'helper-fixture') { throw 'Credential subprocess isolation failed.' }
     Write-Output 'PASS PowerShell credential subprocess isolation'
